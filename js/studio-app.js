@@ -372,6 +372,12 @@ class CanvasController {
     this.moveSession = null;
     this.blockDragSession = null;
     this.dropTarget = null;
+    this.loadSequence = 0;
+    this.pendingLoad = null;
+    this.browseSession = 0;
+    this.activeBrowseSession = null;
+    this.pendingBrowse = null;
+    this.browseReadyTimer = null;
     this.initParentEvents();
   }
 
@@ -388,17 +394,31 @@ class CanvasController {
     document.addEventListener('pointerup', (event) => { this.endResize(); this.endMove(); this.endBlockDrag(event); });
     document.addEventListener('pointercancel', (event) => this.endBlockDrag(event, true));
     window.addEventListener('resize', () => this.updateOverlay());
+    window.addEventListener('message', (event) => this.handleBrowseReady(event));
     new ResizeObserver(() => { this.updateOverlay(); updateCanvasInfo(); }).observe(this.shell);
   }
 
   async load(html, options = {}) {
     const source = String(html || '').trim() || EMPTY_DOCUMENT;
+    const sequence = ++this.loadSequence;
+    this.pendingLoad?.cancel();
     return new Promise((resolve, reject) => {
-      this.iframe.onload = () => {
-        this.iframe.onload = null;
+      let settled = false;
+      const finish = (result, error) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        this.iframe.removeEventListener('load', onLoad);
+        if (this.pendingLoad?.sequence === sequence) this.pendingLoad = null;
+        if (error) reject(error);
+        else resolve(result);
+      };
+      const onLoad = () => {
+        if (sequence !== this.loadSequence) return finish(null);
         try {
           const previousSelection = model.selected;
           model.doc = this.iframe.contentDocument;
+          if (!model.doc?.documentElement) throw new Error('编辑画布没有返回可编辑文档');
           model.selected = null;
           if (previousSelection) model.signal('selection', null);
           this.wireDocument(model.doc);
@@ -406,11 +426,29 @@ class CanvasController {
           updateCanvasInfo();
           model.signal('document', model.doc);
           if (!options.preserveHistory) model.resetHistory(source);
-          resolve(model.doc);
-        } catch (error) { reject(error); }
+          finish(model.doc);
+        } catch (error) { finish(null, error); }
       };
+      const timer = window.setTimeout(() => finish(null, new Error('编辑画布加载超时，请重新切换到编辑模式')), 30000);
+      this.pendingLoad = { sequence, cancel: () => finish(null) };
+      this.iframe.addEventListener('load', onLoad, { once: true });
       this.iframe.srcdoc = source;
     });
+  }
+
+  handleBrowseReady(event) {
+    const message = event.data;
+    if (event.source !== this.browseFrame.contentWindow || !message) return;
+    if (message.type === 'html-designer-preview-rendered' && message.session === this.activeBrowseSession) {
+      window.clearTimeout(this.browseReadyTimer);
+      this.browseFrame.dataset.previewState = 'ready';
+      if (model.mode === 'browse') setStatus('浏览模式 · 页面已载入，链接、表单和脚本交互已启用');
+      return;
+    }
+    const pending = this.pendingBrowse;
+    if (!pending || message.type !== 'html-designer-preview-ready' || message.session !== pending.session) return;
+    this.browseFrame.contentWindow.postMessage({ type: 'html-designer-render-preview', session: pending.session, html: pending.html }, '*');
+    this.pendingBrowse = null;
   }
 
   enterBrowse(html = model.serializeDocument()) {
@@ -421,25 +459,26 @@ class CanvasController {
     this.shell.classList.add('browsing');
     this.iframe.hidden = true;
     this.browseFrame.hidden = false;
-    const fragmentNavigation = `<script>
-    document.addEventListener('click', function (event) {
-      const link = event.target.closest && event.target.closest('a[href^="#"]');
-      if (!link) return;
-      const hash = link.getAttribute('href');
-      const target = hash === '#' ? document.documentElement : document.getElementById(decodeURIComponent(hash.slice(1)));
-      if (!target) return;
-      event.preventDefault();
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, true);
-  <\/script>`;
-    const source = /<base\b/i.test(html)
-      ? html
-      : html.replace(/<head([^>]*)>/i, `<head$1>\n  <base href="${escapeText(document.baseURI)}">\n  ${fragmentNavigation}`);
-    this.browseFrame.src = `data:text/html;charset=utf-8,${encodeURIComponent(source)}`;
+    const session = String(++this.browseSession);
+    this.activeBrowseSession = session;
+    this.pendingBrowse = { session, html: String(html || EMPTY_DOCUMENT) };
+    this.browseFrame.dataset.previewState = 'loading';
+    window.clearTimeout(this.browseReadyTimer);
+    this.browseReadyTimer = window.setTimeout(() => {
+      if (this.activeBrowseSession !== session || this.browseFrame.dataset.previewState === 'ready') return;
+      this.browseFrame.dataset.previewState = 'error';
+      setStatus('浏览页面载入超时 · 可以切回编辑后重试');
+      toast('浏览页面载入超时，请切回编辑后重试', 'error');
+    }, 8000);
+    this.browseFrame.src = `preview-host.html?session=${encodeURIComponent(session)}`;
     updateCanvasInfo();
   }
 
   exitBrowse() {
+    window.clearTimeout(this.browseReadyTimer);
+    this.activeBrowseSession = null;
+    this.pendingBrowse = null;
+    this.browseFrame.dataset.previewState = 'idle';
     this.shell.classList.remove('browsing');
     this.browseFrame.hidden = true;
     this.browseFrame.src = 'about:blank';
@@ -1971,21 +2010,30 @@ function applyModeLayout(mode) {
   });
 }
 
+function setImmersiveState(active) {
+  byId('studio').classList.toggle('preview-mode', active);
+  byId('leave-preview').hidden = !active;
+  byId('preview-button').classList.toggle('active', active);
+}
+
+let modeTransition = Promise.resolve();
+let modeGeneration = 0;
+
 function activateVisualWorkspace() {
-  const studio = byId('studio');
-  studio.classList.remove('preview-mode');
-  byId('leave-preview').hidden = true;
-  byId('preview-button').classList.remove('active');
+  modeGeneration += 1;
+  setImmersiveState(false);
   canvas.exitBrowse();
   model.mode = 'visual';
   applyModeLayout('visual');
+  updateDocumentState();
 }
 
-async function commitSourceChanges() {
+async function commitSourceChanges(generation = modeGeneration) {
   model.sourceText = byId('source-editor').value;
   const sourceChanged = model.sourceText !== model.sourceBaseline;
   model.mode = 'visual';
-  await canvas.load(model.sourceText, { preserveHistory: true });
+  const loadedDocument = await canvas.load(model.sourceText, { preserveHistory: true });
+  if (!loadedDocument || generation !== modeGeneration) return false;
   if (sourceChanged) {
     model.history = model.history.slice(0, model.cursor + 1);
     model.history.push({ html: model.sourceText, path: null, label: '源码编辑' });
@@ -1994,11 +2042,38 @@ async function commitSourceChanges() {
     model.scheduleAutosave();
   }
   renderTree();
+  return true;
 }
 
-async function setMode(mode) {
-  if (!model.doc || !['visual', 'browse', 'source'].includes(mode) || mode === model.mode) return;
-  if (model.mode === 'source') await commitSourceChanges();
+function queueModeTransition(task) {
+  const run = () => task();
+  modeTransition = modeTransition.then(run, run).catch((error) => {
+    console.error('Mode transition failed', error);
+    activateVisualWorkspace();
+    setStatus('模式切换失败 · 已恢复编辑画布');
+    toast(error.message || '模式切换失败，已恢复编辑画布', 'error');
+  });
+  return modeTransition;
+}
+
+async function performModeChange(mode, options = {}) {
+  const generation = options.generation ?? modeGeneration;
+  if (generation !== modeGeneration) return;
+  if (!model.doc || !['visual', 'browse', 'source'].includes(mode)) return;
+  if (!options.keepImmersive) setImmersiveState(false);
+  if (mode === model.mode) {
+    if (mode === 'visual') {
+      canvas.preview = false;
+      canvas.updateOverlay();
+    }
+    applyModeLayout(mode);
+    updateDocumentState();
+    return;
+  }
+  if (model.mode === 'source') {
+    const committed = await commitSourceChanges(generation);
+    if (!committed || generation !== modeGeneration) return;
+  }
   if (model.mode === 'browse') {
     canvas.exitBrowse();
     model.mode = 'visual';
@@ -2025,12 +2100,21 @@ async function setMode(mode) {
   updateDocumentState();
 }
 
-async function togglePreview(force) {
-  const next = typeof force === 'boolean' ? force : !byId('studio').classList.contains('preview-mode');
-  if (next && model.mode !== 'browse') await setMode('browse');
-  byId('studio').classList.toggle('preview-mode', next);
-  byId('leave-preview').hidden = !next;
-  byId('preview-button').classList.toggle('active', next);
+function setMode(mode) {
+  const generation = modeGeneration;
+  return queueModeTransition(() => performModeChange(mode, { generation }));
+}
+
+function togglePreview(force) {
+  const generation = modeGeneration;
+  return queueModeTransition(async () => {
+    if (generation !== modeGeneration) return;
+    if (!model.doc || byId('studio').hidden) return;
+    const next = typeof force === 'boolean' ? force : !byId('studio').classList.contains('preview-mode');
+    if (next && model.mode !== 'browse') await performModeChange('browse', { keepImmersive: true, generation });
+    if (generation !== modeGeneration) return;
+    setImmersiveState(next);
+  });
 }
 
 function exitPreview() { togglePreview(false); }

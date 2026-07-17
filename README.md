@@ -62,7 +62,7 @@ HTML_DESIGNER_MODEL_CATALOG_TTL_MS=300000
 - Chrome、Edge、Arc：支持打开文件并直接保存回磁盘。
 - Safari、Firefox：支持导入、编辑和下载导出；不支持直接写回。
 
-编辑画布使用不含 `allow-scripts` 的 sandbox，导入页面中的 JavaScript 不会在编辑状态执行。切换到“浏览”后，页面会通过独立来源的 Data URL 在浏览 sandbox 中运行脚本；也可以使用外部预览。
+编辑画布使用不含 `allow-scripts` 的 sandbox，导入页面中的 JavaScript 不会在编辑状态执行。切换到“浏览”后，当前 HTML 会通过消息通道送入独立的浏览宿主页，并在不含 `allow-same-origin` 的 sandbox 中运行脚本；也可以使用外部预览。
 
 ## 项目结构
 

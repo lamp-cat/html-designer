@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTML 浏览画布</title>
+  <style>
+    html, body { min-height: 100%; margin: 0; background: #fff; }
+    body { display: grid; place-items: center; color: #66706a; font: 12px system-ui, sans-serif; }
+    span { display: grid; gap: 10px; justify-items: center; }
+    i { width: 22px; height: 22px; border: 2px solid #e0e5e1; border-top-color: #ff5f42; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <span><i></i>正在打开页面…</span>
+  <script>
+    (() => {
+      const session = new URLSearchParams(location.search).get('session') || '';
+      window.addEventListener('message', (event) => {
+        const message = event.data;
+        if (event.source !== parent || !message || message.type !== 'html-designer-render-preview' || message.session !== session || typeof message.html !== 'string') return;
+        document.open();
+        document.write(message.html);
+        document.close();
+        parent.postMessage({ type: 'html-designer-preview-rendered', session }, '*');
+      }, { once: true });
+      parent.postMessage({ type: 'html-designer-preview-ready', session }, '*');
+    })();
+  </script>
+</body>
+</html>
