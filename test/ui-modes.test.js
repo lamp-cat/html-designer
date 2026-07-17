@@ -41,6 +41,21 @@ test('edit clicks expose an upward action menu and browse mode uses a separate d
   assert.match(app, /页面链接、表单和脚本交互已启用/);
 });
 
+test('edit clicks resolve semantic components and expose component-specific settings', () => {
+  assert.match(index, /id="selection-component-kind"/);
+  assert.match(index, /id="component-settings-button"/);
+  assert.match(app, /function resolveComponentTarget\(node\)/);
+  assert.match(app, /closest\('button, a\[href\]/);
+  assert.match(app, /function componentInfo\(element\)/);
+  assert.match(app, /\[data-component\]/);
+  assert.match(app, /'首屏区块'/);
+  assert.match(app, /component-settings/);
+  assert.match(app, /openComponentEditor\(element/);
+  assert.match(app, /编辑\$\{escapeText\(info\.name\)\}/);
+  assert.match(app, /add-option/);
+  assert.match(app, /toggle-details/);
+});
+
 test('serializes mode transitions and cancels stale canvas loads', () => {
   assert.match(app, /let modeTransition = Promise\.resolve\(\)/);
   assert.match(app, /queueModeTransition/);

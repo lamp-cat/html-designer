@@ -255,10 +255,11 @@
             <div class="selection-label" id="selection-label"></div>
             <div class="selection-size" id="selection-size"></div>
             <div class="selection-actions" id="selection-actions">
-              <span class="selection-menu-summary"><small>正在编辑</small><strong id="selection-menu-title">元素</strong></span>
+              <span class="selection-menu-summary"><small id="selection-component-kind">通用元素</small><strong id="selection-menu-title">元素</strong></span>
               <span class="selection-divider"></span>
+              <button class="tooltip component-settings-action" id="component-settings-button" type="button" data-command="component-settings" aria-label="编辑组件设置" data-tooltip="编辑组件设置"><svg class="icon"><use href="#i-sliders"></use></svg></button>
               <button class="selection-grip tooltip" type="button" aria-label="拖动元素" data-tooltip="拖动元素"><svg class="icon"><use href="#i-grip"></use></svg></button>
-              <button class="tooltip" type="button" data-command="edit" aria-label="编辑文字" data-tooltip="编辑文字"><svg class="icon"><use href="#i-edit"></use></svg></button>
+              <button class="tooltip" id="selection-text-action" type="button" data-command="edit" aria-label="编辑文字" data-tooltip="编辑文字"><svg class="icon"><use href="#i-edit"></use></svg></button>
               <button class="tooltip" type="button" data-command="insert" aria-label="在此插入" data-tooltip="在此插入"><svg class="icon"><use href="#i-boxes"></use></svg></button>
               <button class="tooltip" type="button" data-command="before" aria-label="上移" data-tooltip="上移"><svg class="icon"><use href="#i-up"></use></svg></button>
               <button class="tooltip" type="button" data-command="after" aria-label="下移" data-tooltip="下移"><svg class="icon"><use href="#i-down"></use></svg></button>

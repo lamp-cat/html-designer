@@ -132,6 +132,92 @@ const FORBIDDEN_SELECT = new Set(['HTML', 'HEAD', 'META', 'LINK', 'STYLE', 'SCRI
 const FLOW_CONTAINERS = new Set(['BODY', 'MAIN', 'SECTION', 'ARTICLE', 'ASIDE', 'NAV', 'HEADER', 'FOOTER', 'DIV', 'FORM', 'FIGURE', 'FIGCAPTION', 'BLOCKQUOTE', 'DETAILS', 'DIALOG', 'FIELDSET', 'LI', 'DD', 'TD', 'TH']);
 const PHRASING_CONTAINERS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'A', 'BUTTON', 'LABEL', 'SPAN', 'STRONG', 'EM', 'SMALL', 'MARK', 'SUMMARY', 'DT']);
 const PHRASING_CONTENT = new Set(['A', 'ABBR', 'B', 'BDI', 'BDO', 'BR', 'BUTTON', 'CITE', 'CODE', 'DATA', 'DEL', 'EM', 'I', 'IMG', 'INPUT', 'INS', 'KBD', 'LABEL', 'MARK', 'Q', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TIME', 'U', 'VAR', 'WBR']);
+const DIRECT_COMPONENT_TAGS = new Set(['A', 'BUTTON', 'INPUT', 'TEXTAREA', 'SELECT', 'FORM', 'IMG', 'PICTURE', 'VIDEO', 'AUDIO', 'IFRAME', 'DETAILS', 'SUMMARY', 'DIALOG', 'NAV', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TH', 'TD', 'UL', 'OL', 'LI']);
+const INLINE_WRAPPER_TAGS = new Set(['SPAN', 'STRONG', 'EM', 'SMALL', 'MARK', 'B', 'I', 'U', 'S', 'ABBR', 'CODE', 'USE', 'PATH', 'G']);
+
+function elementFromNode(node) {
+  if (!node) return null;
+  return node.nodeType === 1 ? node : node.parentElement || null;
+}
+
+function resolveComponentTarget(node) {
+  const element = elementFromNode(node);
+  if (!element?.closest) return element;
+  const tag = String(element.tagName || '').toUpperCase();
+
+  // Keep the control itself when clicking inside a form field, then collapse
+  // decorative wrappers and SVG paths into their nearest actionable component.
+  if (['INPUT', 'TEXTAREA', 'SELECT', 'OPTION'].includes(tag)) return tag === 'OPTION' ? element.closest('select') || element : element;
+  const actionable = element.closest('button, a[href], [role="button"], [role="link"], [role="tab"], [role="menuitem"], [role="switch"], [role="checkbox"], [role="radio"], [role="textbox"], [role="combobox"]');
+  if (actionable) return actionable;
+
+  const picture = element.closest('picture');
+  if (picture && ['SOURCE', 'IMG'].includes(tag)) return picture.querySelector('img') || picture;
+  const media = element.closest('video, audio');
+  if (media && ['SOURCE', 'TRACK'].includes(tag)) return media;
+  if (element.namespaceURI === 'http://www.w3.org/2000/svg' || ['SVG', 'USE', 'PATH', 'G'].includes(tag)) return element.closest('svg') || element;
+
+  if (DIRECT_COMPONENT_TAGS.has(tag)) return element;
+  if (INLINE_WRAPPER_TAGS.has(tag)) {
+    const cell = element.closest('th, td');
+    if (cell) return cell;
+    const listItem = element.closest('li');
+    if (listItem) return listItem;
+    const textBlock = element.closest('h1, h2, h3, h4, h5, h6, p, blockquote, figcaption, summary, label');
+    if (textBlock) return textBlock;
+    const namedComponent = element.closest('[data-component], [data-widget], [data-block], .card, .panel, .tile, .hero, .banner, .modal, .drawer, .popover, .tabs, .accordion, .carousel, .gallery, .toolbar, .sidebar');
+    if (namedComponent) return namedComponent;
+  }
+  return element;
+}
+
+function componentInfo(element) {
+  const tag = String(element?.tagName || '').toUpperCase();
+  const role = element?.getAttribute?.('role') || '';
+  const inputType = element?.getAttribute?.('type')?.toLowerCase() || 'text';
+  const hint = `${element?.getAttribute?.('data-component') || ''} ${element?.getAttribute?.('data-widget') || ''} ${element?.getAttribute?.('data-block') || ''} ${element?.id || ''} ${element?.getAttribute?.('class') || ''}`.toLowerCase();
+  const hinted = (pattern) => pattern.test(hint);
+  const result = (key, name, description, canEditText = false) => ({ key, name, description, canEditText });
+  if (tag === 'A' || role === 'link') return result('link', '链接', '编辑文字、目标地址和打开方式', true);
+  if (tag === 'BUTTON' || role === 'button' || role === 'tab' || role === 'menuitem') return result('button', '按钮', '编辑按钮文字、类型和无障碍名称', true);
+  if (['checkbox', 'radio', 'switch'].includes(role)) return result('role-choice', role === 'radio' ? '单选控件' : role === 'switch' ? '开关' : '复选控件', '编辑控件状态、无障碍名称和样式');
+  if (['textbox', 'combobox'].includes(role)) return result('role-input', role === 'combobox' ? '组合输入框' : '文本输入框', '编辑控件名称、内容和样式');
+  if (tag === 'INPUT') {
+    if (['button', 'submit', 'reset'].includes(inputType)) return result('input-button', '表单按钮', '编辑按钮文字、类型和提交行为');
+    if (['checkbox', 'radio'].includes(inputType) || ['checkbox', 'radio', 'switch'].includes(role)) return result('choice', inputType === 'radio' ? '单选框' : '复选框', '编辑选项名称、值和选中状态');
+    return result('input', '输入框', '编辑字段类型、名称、占位文字和值');
+  }
+  if (tag === 'TEXTAREA') return result('textarea', '文本域', '编辑字段名称、占位文字和默认内容');
+  if (tag === 'SELECT') return result('select', '选择器', '编辑字段名称、必填状态和选项');
+  if (tag === 'FORM') return result('form', '表单', '编辑提交地址、提交方法和自动完成');
+  if (tag === 'IMG' || tag === 'PICTURE') return result('image', '图片', '更换图片地址并补充替代文字');
+  if (tag === 'VIDEO' || tag === 'AUDIO') return result('media', tag === 'VIDEO' ? '视频' : '音频', '编辑媒体地址和播放选项');
+  if (tag === 'IFRAME') return result('embed', '嵌入内容', '编辑嵌入地址、标题和加载方式');
+  if (tag === 'DETAILS') return result('details', '折叠面板', '编辑标题和默认展开状态');
+  if (tag === 'SUMMARY') return result('summary', '折叠标题', '编辑折叠面板标题', true);
+  if (tag === 'DIALOG' || role === 'dialog' || role === 'alertdialog') return result('dialog', '对话框', '编辑对话框名称和默认打开状态');
+  if (tag === 'NAV' || role === 'navigation') return result('navigation', '导航', '编辑导航名称和结构');
+  if (tag === 'LI') return result('list-item', '列表项', '编辑内容或在相邻位置添加列表项', true);
+  if (tag === 'UL' || tag === 'OL') return result('list', tag === 'OL' ? '有序列表' : '无序列表', '管理列表结构和列表项');
+  if (tag === 'TH' || tag === 'TD') return result('table-cell', tag === 'TH' ? '表头单元格' : '表格单元格', '编辑内容或添加表格行列', true);
+  if (tag === 'TR') return result('table-row', '表格行', '管理这一行的单元格');
+  if (tag === 'TABLE') return result('table', '表格', '编辑表格标题和结构');
+  if (/^H[1-6]$/.test(tag)) return result('heading', `${tag.slice(1)} 级标题`, '编辑标题内容和层级', true);
+  if (['P', 'BLOCKQUOTE', 'FIGCAPTION', 'LABEL', 'SPAN', 'STRONG', 'EM', 'SMALL', 'TIME'].includes(tag)) return result('text', tag === 'LABEL' ? '字段标签' : '文本', '编辑文字内容和排版', true);
+  if (tag === 'SVG') return result('icon', '图标', '编辑图标属性、尺寸和样式');
+  if (['HEADER', 'MAIN', 'SECTION', 'ARTICLE', 'ASIDE', 'FOOTER'].includes(tag)) {
+    const names = { HEADER: '页头', MAIN: '主内容', SECTION: '内容区块', ARTICLE: '内容卡片', ASIDE: '侧边内容', FOOTER: '页脚' };
+    return result('layout', names[tag], '编辑区块标识、类名和无障碍名称');
+  }
+  if (tag === 'BODY') return result('page', '页面主体', '管理页面的主要内容结构');
+  if (hinted(/(^|[\s_-])(card|panel|tile)([\s_-]|$)/)) return result('card', '卡片', '编辑卡片内容、标识和样式');
+  if (hinted(/(^|[\s_-])(hero|banner|jumbotron)([\s_-]|$)/)) return result('layout', '首屏区块', '编辑首屏内容、标识和无障碍名称');
+  if (hinted(/(^|[\s_-])(modal|drawer|popover|overlay)([\s_-]|$)/)) return result('overlay', '弹层', '编辑弹层内容、标识和样式');
+  if (hinted(/(^|[\s_-])(tabs?|accordion)([\s_-]|$)/)) return result('collection', hinted(/accordion/) ? '折叠组' : '标签页', '编辑组件结构、标识和样式');
+  if (hinted(/(^|[\s_-])(carousel|slider|gallery)([\s_-]|$)/)) return result('collection', '媒体集合', '编辑集合内容、标识和样式');
+  if (hinted(/(^|[\s_-])(toolbar|sidebar|menu)([\s_-]|$)/)) return result('layout', hinted(/sidebar/) ? '侧边栏' : '操作区域', '编辑区域结构、标识和无障碍名称');
+  return result('element', '通用元素', '编辑元素标识、类名和属性', !VOID_TAGS.has(tag));
+}
 
 function escapeText(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -228,6 +314,37 @@ class ModalService {
     ];
     this.root.innerHTML = `<section class="modal-card shortcuts" role="dialog" aria-modal="true" aria-label="快捷键"><header class="modal-head"><h2>快捷键</h2><button type="button" data-close aria-label="关闭">×</button></header><div class="modal-body"><p class="shortcut-intro">用键盘完成高频操作。Windows 和 Linux 上请使用 Ctrl 代替 ⌘。</p><div class="shortcut-grid">${rows.map(([label, keys]) => `<div class="shortcut-row"><strong>${escapeText(label)}</strong><span>${keys.map((key) => `<kbd>${escapeText(key)}</kbd>`).join('')}</span></div>`).join('')}</div></div><footer class="modal-foot"><button class="primary" type="button" data-close-footer>知道了</button></footer></section>`;
     pickAll('[data-close], [data-close-footer]', this.root).forEach((button) => { button.onclick = () => this.close(); });
+  }
+
+  component(info, selector, fields, onApply) {
+    const fieldMarkup = fields.map((field, index) => {
+      const id = `component-field-${index}`;
+      const classes = `component-field${field.wide ? ' wide' : ''}${field.type === 'checkbox' ? ' checkbox' : ''}`;
+      if (field.type === 'checkbox') {
+        return `<label class="${classes}" for="${id}"><input id="${id}" name="${escapeText(field.name)}" type="checkbox"${field.value ? ' checked' : ''}><span><strong>${escapeText(field.label)}</strong>${field.help ? `<small>${escapeText(field.help)}</small>` : ''}</span></label>`;
+      }
+      let controlMarkup;
+      if (field.type === 'textarea') controlMarkup = `<textarea id="${id}" name="${escapeText(field.name)}" rows="${field.rows || 4}" placeholder="${escapeText(field.placeholder || '')}">${escapeText(field.value || '')}</textarea>`;
+      else if (field.type === 'select') controlMarkup = `<select id="${id}" name="${escapeText(field.name)}">${(field.options || []).map(([value, label]) => `<option value="${escapeText(value)}"${String(field.value) === String(value) ? ' selected' : ''}>${escapeText(label)}</option>`).join('')}</select>`;
+      else controlMarkup = `<input id="${id}" name="${escapeText(field.name)}" type="${escapeText(field.type || 'text')}" value="${escapeText(field.value || '')}" placeholder="${escapeText(field.placeholder || '')}">`;
+      return `<label class="${classes}" for="${id}"><span><strong>${escapeText(field.label)}</strong>${field.help ? `<small>${escapeText(field.help)}</small>` : ''}</span>${controlMarkup}</label>`;
+    }).join('');
+    this.root.innerHTML = `<section class="modal-card component-editor-card" role="dialog" aria-modal="true" aria-labelledby="component-editor-title"><header class="modal-head component-editor-head"><div><span>${escapeText(info.name)}</span><h2 id="component-editor-title">编辑${escapeText(info.name)}</h2></div><button type="button" data-close aria-label="关闭">×</button></header><form class="component-editor-form"><div class="component-identity"><strong>${escapeText(selector)}</strong><small>${escapeText(info.description)}</small></div><div class="component-field-grid">${fieldMarkup}</div><footer class="modal-foot"><button type="button" data-cancel>取消</button><button class="primary" type="submit">应用修改</button></footer></form></section>`;
+    const form = pick('form', this.root);
+    const close = () => this.close();
+    pick('[data-close]', this.root).onclick = close;
+    pick('[data-cancel]', this.root).onclick = close;
+    form.onsubmit = (event) => {
+      event.preventDefault();
+      const values = {};
+      fields.forEach((field) => {
+        const input = form.elements.namedItem(field.name);
+        values[field.name] = field.type === 'checkbox' ? Boolean(input?.checked) : input?.value ?? '';
+      });
+      onApply(values);
+      this.close();
+    };
+    pick('input:not([type="checkbox"]), textarea, select', form)?.focus();
   }
 }
 
@@ -506,17 +623,20 @@ class CanvasController {
       if (this.preview) return;
       event.preventDefault();
       event.stopPropagation();
-      const target = event.target.nodeType === Node.ELEMENT_NODE ? event.target : event.target.parentElement;
-      model.select(target);
+      const target = resolveComponentTarget(event.target);
+      if (target === model.selected) {
+        this.showSelectionMenu();
+        this.updateOverlay();
+      } else model.select(target);
     }, true);
     doc.addEventListener('submit', (event) => event.preventDefault(), true);
     doc.addEventListener('dblclick', (event) => {
       if (this.preview) return;
       if (event.target.closest?.('[data-hd-editing="true"]')) return;
       event.preventDefault();
-      this.editText(event.target);
+      this.editText(resolveComponentTarget(event.target));
     }, true);
-    doc.addEventListener('mousemove', (event) => this.showHover(event.target));
+    doc.addEventListener('mousemove', (event) => this.showHover(resolveComponentTarget(event.target)));
     doc.addEventListener('mouseleave', () => { this.hover.hidden = true; });
     doc.addEventListener('scroll', () => this.updateOverlay(), true);
     doc.addEventListener('keydown', (event) => {
@@ -609,14 +729,21 @@ class CanvasController {
       this.layer.hidden = true;
       return;
     }
-    renderSelectionContext(element);
+    const info = componentInfo(element);
+    renderSelectionContext(element, info);
     this.layer.hidden = false;
     const rect = element.getBoundingClientRect();
     const left = rect.left;
     const top = rect.top;
     Object.assign(this.frame.style, { left: `${left}px`, top: `${top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
-    this.label.textContent = this.describe(element);
+    this.label.textContent = `${info.name} · ${this.describe(element)}`;
+    byId('selection-component-kind').textContent = info.name;
     byId('selection-menu-title').textContent = this.describe(element);
+    const settingsButton = byId('component-settings-button');
+    settingsButton.setAttribute('aria-label', `编辑${info.name}设置`);
+    settingsButton.dataset.tooltip = `编辑${info.name}设置`;
+    const textButton = byId('selection-text-action');
+    textButton.hidden = !info.canEditText;
     Object.assign(this.label.style, { left: `${left}px`, top: `${Math.max(0, top - 20)}px` });
     const width = Math.round(rect.width);
     const height = Math.round(rect.height);
@@ -646,11 +773,192 @@ class CanvasController {
     return `${element.tagName.toLowerCase()}${id}${classes}`;
   }
 
+  setAttribute(element, name, value) {
+    const next = String(value ?? '').trim();
+    if (next) element.setAttribute(name, next); else element.removeAttribute(name);
+  }
+
+  componentEditorFields(element, info) {
+    const fields = [];
+    const textTarget = this.editableTextTarget(element);
+    const textKeys = new Set(['link', 'button', 'summary', 'list-item', 'table-cell', 'heading', 'text']);
+    if (textKeys.has(info.key) && textTarget && !VOID_TAGS.has(textTarget.tagName)) {
+      fields.push({ name: 'text', label: '主要文字', value: textTarget.textContent.trim(), wide: true });
+    }
+    if (info.key === 'link') {
+      fields.push(
+        { name: 'href', label: '链接地址', value: element.getAttribute('href') || '', placeholder: 'https://… 或 #section', wide: true },
+        { name: 'target', label: '打开方式', type: 'select', value: element.getAttribute('target') || '', options: [['', '当前页面'], ['_blank', '新窗口']] },
+      );
+    } else if (['button', 'input-button'].includes(info.key)) {
+      fields.push(
+        { name: 'buttonType', label: '按钮类型', type: 'select', value: element.getAttribute('type') || 'button', options: [['button', '普通按钮'], ['submit', '提交表单'], ['reset', '重置表单']] },
+        { name: 'ariaLabel', label: '无障碍名称', value: element.getAttribute('aria-label') || '' },
+      );
+      if (info.key === 'input-button') fields.unshift({ name: 'value', label: '按钮文字', value: element.getAttribute('value') || '' });
+    } else if (info.key === 'image') {
+      const image = element.tagName === 'IMG' ? element : element.querySelector('img');
+      fields.push(
+        { name: 'src', label: '图片地址', value: image?.getAttribute('src') || '', placeholder: 'https://… 或相对路径', wide: true },
+        { name: 'alt', label: '替代文字', value: image?.getAttribute('alt') || '', help: '用于无障碍访问和图片加载失败时的说明', wide: true },
+        { name: 'loading', label: '加载方式', type: 'select', value: image?.getAttribute('loading') || '', options: [['', '浏览器默认'], ['lazy', '延迟加载'], ['eager', '立即加载']] },
+      );
+    } else if (['input', 'choice'].includes(info.key)) {
+      fields.push(
+        { name: 'inputType', label: '字段类型', type: 'select', value: element.getAttribute('type') || 'text', options: [['text', '文本'], ['email', '邮箱'], ['tel', '电话'], ['url', '网址'], ['number', '数字'], ['date', '日期'], ['password', '密码'], ['checkbox', '复选框'], ['radio', '单选框']] },
+        { name: 'name', label: '字段名称', value: element.getAttribute('name') || '' },
+        { name: 'placeholder', label: '占位文字', value: element.getAttribute('placeholder') || '', wide: true },
+        { name: 'value', label: '默认值', value: element.getAttribute('value') || '' },
+        { name: 'required', label: '必填字段', type: 'checkbox', value: element.hasAttribute('required') },
+      );
+      if (info.key === 'choice') fields.push({ name: 'checked', label: '默认选中', type: 'checkbox', value: element.hasAttribute('checked') });
+    } else if (info.key === 'textarea') {
+      fields.push(
+        { name: 'name', label: '字段名称', value: element.getAttribute('name') || '' },
+        { name: 'rows', label: '显示行数', type: 'number', value: element.getAttribute('rows') || '4' },
+        { name: 'placeholder', label: '占位文字', value: element.getAttribute('placeholder') || '', wide: true },
+        { name: 'value', label: '默认内容', type: 'textarea', value: element.textContent || '', wide: true },
+        { name: 'required', label: '必填字段', type: 'checkbox', value: element.hasAttribute('required') },
+      );
+    } else if (info.key === 'select') {
+      const options = Array.from(element.options).map((option) => option.value === option.textContent ? option.textContent : `${option.textContent} | ${option.value}`).join('\n');
+      fields.push(
+        { name: 'name', label: '字段名称', value: element.getAttribute('name') || '' },
+        { name: 'required', label: '必填字段', type: 'checkbox', value: element.hasAttribute('required') },
+        { name: 'options', label: '选项', type: 'textarea', value: options, help: '每行一个选项，可写成“显示文字 | 值”', wide: true, rows: 6 },
+      );
+    } else if (info.key === 'form') {
+      fields.push(
+        { name: 'action', label: '提交地址', value: element.getAttribute('action') || '', wide: true },
+        { name: 'method', label: '提交方式', type: 'select', value: (element.getAttribute('method') || 'get').toLowerCase(), options: [['get', 'GET'], ['post', 'POST'], ['dialog', 'DIALOG']] },
+        { name: 'autocomplete', label: '自动完成', type: 'select', value: element.getAttribute('autocomplete') || '', options: [['', '浏览器默认'], ['on', '开启'], ['off', '关闭']] },
+      );
+    } else if (info.key === 'details') {
+      fields.push(
+        { name: 'summary', label: '折叠标题', value: element.querySelector(':scope > summary')?.textContent.trim() || '', wide: true },
+        { name: 'open', label: '默认展开', type: 'checkbox', value: element.hasAttribute('open') },
+      );
+    } else if (info.key === 'media') {
+      fields.push(
+        { name: 'src', label: '媒体地址', value: element.getAttribute('src') || element.querySelector('source')?.getAttribute('src') || '', wide: true },
+        { name: 'controls', label: '显示播放控件', type: 'checkbox', value: element.hasAttribute('controls') },
+        { name: 'autoplay', label: '自动播放', type: 'checkbox', value: element.hasAttribute('autoplay') },
+        { name: 'muted', label: '默认静音', type: 'checkbox', value: element.hasAttribute('muted') },
+      );
+    } else if (info.key === 'embed') {
+      fields.push(
+        { name: 'src', label: '嵌入地址', value: element.getAttribute('src') || '', wide: true },
+        { name: 'title', label: '内容标题', value: element.getAttribute('title') || '', wide: true },
+        { name: 'loading', label: '加载方式', type: 'select', value: element.getAttribute('loading') || '', options: [['', '浏览器默认'], ['lazy', '延迟加载'], ['eager', '立即加载']] },
+      );
+    } else if (info.key === 'table') {
+      fields.push({ name: 'caption', label: '表格标题', value: element.caption?.textContent.trim() || '', wide: true });
+    } else if (['navigation', 'layout', 'dialog', 'role-choice', 'role-input'].includes(info.key)) {
+      fields.push({ name: 'ariaLabel', label: '无障碍名称', value: element.getAttribute('aria-label') || '', wide: true });
+      if (info.key === 'dialog') fields.push({ name: 'open', label: '默认打开', type: 'checkbox', value: element.hasAttribute('open') });
+      if (info.key === 'role-choice') fields.push({ name: 'checked', label: '默认选中', type: 'checkbox', value: element.getAttribute('aria-checked') === 'true' });
+    }
+    fields.push(
+      { name: 'id', label: '元素 ID', value: element.id || '' },
+      { name: 'className', label: 'CSS 类名', value: element.getAttribute('class') || '', help: '多个类名用空格分隔', wide: true },
+    );
+    return { fields, textTarget };
+  }
+
+  openComponentEditor(element = model.selected) {
+    if (!element) return;
+    const info = componentInfo(element);
+    const { fields, textTarget } = this.componentEditorFields(element, info);
+    modal.component(info, this.describe(element), fields, (values) => {
+      const before = model.serializeDocument();
+      const setBoolean = (name, enabled) => element.toggleAttribute(name, Boolean(enabled));
+      if ('text' in values && textTarget) textTarget.textContent = values.text;
+      if (info.key === 'link') {
+        this.setAttribute(element, 'href', values.href);
+        this.setAttribute(element, 'target', values.target);
+        if (values.target === '_blank') element.setAttribute('rel', 'noopener noreferrer');
+      } else if (['button', 'input-button'].includes(info.key)) {
+        this.setAttribute(element, 'type', values.buttonType);
+        this.setAttribute(element, 'aria-label', values.ariaLabel);
+        if (info.key === 'input-button') this.setAttribute(element, 'value', values.value);
+      } else if (info.key === 'image') {
+        const image = element.tagName === 'IMG' ? element : element.querySelector('img');
+        if (image) {
+          this.setAttribute(image, 'src', values.src);
+          image.setAttribute('alt', values.alt || '');
+          this.setAttribute(image, 'loading', values.loading);
+        }
+      } else if (['input', 'choice'].includes(info.key)) {
+        this.setAttribute(element, 'type', values.inputType);
+        this.setAttribute(element, 'name', values.name);
+        this.setAttribute(element, 'placeholder', values.placeholder);
+        this.setAttribute(element, 'value', values.value);
+        setBoolean('required', values.required);
+        if ('checked' in values) setBoolean('checked', values.checked);
+      } else if (info.key === 'textarea') {
+        this.setAttribute(element, 'name', values.name);
+        this.setAttribute(element, 'rows', values.rows);
+        this.setAttribute(element, 'placeholder', values.placeholder);
+        element.textContent = values.value;
+        setBoolean('required', values.required);
+      } else if (info.key === 'select') {
+        this.setAttribute(element, 'name', values.name);
+        setBoolean('required', values.required);
+        const lines = values.options.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        if (lines.length) {
+          element.replaceChildren(...lines.map((line) => {
+            const [label, value] = line.split('|').map((part) => part.trim());
+            const option = model.doc.createElement('option');
+            option.textContent = label;
+            option.value = value || label;
+            return option;
+          }));
+        }
+      } else if (info.key === 'form') {
+        this.setAttribute(element, 'action', values.action);
+        this.setAttribute(element, 'method', values.method);
+        this.setAttribute(element, 'autocomplete', values.autocomplete);
+      } else if (info.key === 'details') {
+        const summary = element.querySelector(':scope > summary');
+        if (summary) summary.textContent = values.summary;
+        setBoolean('open', values.open);
+      } else if (info.key === 'media') {
+        const source = element.hasAttribute('src') ? element : element.querySelector('source') || element;
+        this.setAttribute(source, 'src', values.src);
+        setBoolean('controls', values.controls);
+        setBoolean('autoplay', values.autoplay);
+        setBoolean('muted', values.muted);
+      } else if (info.key === 'embed') {
+        this.setAttribute(element, 'src', values.src);
+        this.setAttribute(element, 'title', values.title);
+        this.setAttribute(element, 'loading', values.loading);
+      } else if (info.key === 'table') {
+        if (values.caption) {
+          const caption = element.caption || element.createCaption();
+          caption.textContent = values.caption;
+        } else element.caption?.remove();
+      } else if (['navigation', 'layout', 'dialog', 'role-choice', 'role-input'].includes(info.key)) {
+        this.setAttribute(element, 'aria-label', values.ariaLabel);
+        if ('open' in values) setBoolean('open', values.open);
+        if ('checked' in values) element.setAttribute('aria-checked', String(values.checked));
+      }
+      this.setAttribute(element, 'id', values.id);
+      this.setAttribute(element, 'class', values.className);
+      if (model.serializeDocument() !== before) model.checkpoint(`编辑${info.name}`);
+      renderTree();
+      renderInspectors();
+      this.updateOverlay();
+      setStatus(`${info.name}设置已更新`);
+      toast(`${info.name}已更新`, 'success');
+    });
+  }
+
   runCommand(command) {
     if (command === 'insert') return openInsertPalette();
     if (command === 'deselect') return model.select(null);
     const element = model.selected;
     if (!element) return;
+    if (command === 'component-settings') return this.openComponentEditor(element);
     if (command === 'edit') return this.editText(element);
     if (command === 'review') return ai.openReview();
     if (command === 'parent') {
@@ -706,6 +1014,20 @@ class CanvasController {
           if (index >= row.cells.length) row.append(newCell); else row.insertBefore(newCell, row.cells[index]);
         });
         model.checkpoint('添加表格列');
+      }
+    }
+    if (command === 'add-option' && element.tagName === 'SELECT') {
+      const option = model.doc.createElement('option');
+      option.textContent = '新选项';
+      option.value = '新选项';
+      element.append(option);
+      model.checkpoint('添加选项');
+    }
+    if (command === 'toggle-details') {
+      const details = element.tagName === 'DETAILS' ? element : element.closest('details');
+      if (details) {
+        details.toggleAttribute('open');
+        model.checkpoint(details.hasAttribute('open') ? '展开折叠面板' : '收起折叠面板');
       }
     }
     renderTree();
@@ -939,7 +1261,7 @@ class CanvasController {
 
 const canvas = new CanvasController();
 
-function renderSelectionContext(element) {
+function renderSelectionContext(element, info = componentInfo(element)) {
   const root = byId('selection-context');
   const divider = byId('context-divider');
   if (!root || !divider) return;
@@ -948,6 +1270,11 @@ function renderSelectionContext(element) {
     commands.push(['list-before', '上方添加列表项', 'up'], ['list-after', '下方添加列表项', 'down']);
   } else if (element?.closest?.('th,td')) {
     commands.push(['row-after', '下方添加行', 'down'], ['col-after', '右侧添加列', 'external']);
+  } else if (info.key === 'select') {
+    commands.push(['add-option', '添加选项', 'boxes']);
+  } else if (['details', 'summary'].includes(info.key)) {
+    const details = element.tagName === 'DETAILS' ? element : element.closest('details');
+    commands.push(['toggle-details', details?.hasAttribute('open') ? '收起面板' : '展开面板', details?.hasAttribute('open') ? 'up' : 'down']);
   }
   root.innerHTML = commands.map(([command, label, icon]) => `<button class="tooltip" type="button" data-command="${command}" aria-label="${escapeText(label)}" data-tooltip="${escapeText(label)}">${iconMarkup(icon)}</button>`).join('');
   divider.hidden = !commands.length;
@@ -2410,7 +2737,8 @@ model.addEventListener('selection', () => {
   updateDocumentState();
   if (model.selected?.isConnected) {
     const rect = model.selected.getBoundingClientRect();
-    setStatus(`${canvas.describe(model.selected)} · ${Math.round(rect.width)} × ${Math.round(rect.height)}`);
+    const info = componentInfo(model.selected);
+    setStatus(`${info.name} · ${canvas.describe(model.selected)} · ${Math.round(rect.width)} × ${Math.round(rect.height)}`);
   } else setStatus('未选择元素');
   ai.updateTarget();
 });
