@@ -512,7 +512,7 @@ class CanvasController {
     document.addEventListener('pointercancel', (event) => this.endBlockDrag(event, true));
     window.addEventListener('resize', () => this.updateOverlay());
     window.addEventListener('message', (event) => this.handleBrowseReady(event));
-    new ResizeObserver(() => { this.updateOverlay(); updateCanvasInfo(); }).observe(this.shell);
+    new ResizeObserver(() => scheduleCanvasViewportUpdate()).observe(byId('workbench'));
   }
 
   async load(html, options = {}) {
@@ -744,11 +744,12 @@ class CanvasController {
     settingsButton.dataset.tooltip = `编辑${info.name}设置`;
     const textButton = byId('selection-text-action');
     textButton.hidden = !info.canEditText;
-    Object.assign(this.label.style, { left: `${left}px`, top: `${Math.max(0, top - 20)}px` });
+    const uiScale = Math.max(.01, canvasZoom);
+    Object.assign(this.label.style, { left: `${left}px`, top: `${Math.max(0, top - 20 / uiScale)}px` });
     const width = Math.round(rect.width);
     const height = Math.round(rect.height);
     this.size.textContent = `${width} × ${height}`;
-    const sizeTop = top + rect.height + 24 < this.iframe.clientHeight ? top + rect.height + 5 : Math.max(1, top + rect.height - 20);
+    const sizeTop = top + rect.height + 24 / uiScale < this.iframe.clientHeight ? top + rect.height + 5 / uiScale : Math.max(1, top + rect.height - 20 / uiScale);
     const sizeLeft = Math.min(Math.max(2, left + rect.width - 66), Math.max(2, this.iframe.clientWidth - 68));
     Object.assign(this.size.style, { left: `${sizeLeft}px`, top: `${sizeTop}px` });
     const summarySize = byId('summary-size');
@@ -1081,8 +1082,8 @@ class CanvasController {
   updateResize(event) {
     const session = this.resizeSession;
     if (!session) return;
-    const dx = event.clientX - session.x;
-    const dy = event.clientY - session.y;
+    const dx = (event.clientX - session.x) / canvasZoom;
+    const dy = (event.clientY - session.y) / canvasZoom;
     let width = Math.max(12, session.width + dx);
     let height = Math.max(12, session.height + dy);
     if (event.shiftKey && session.axis === 'xy') height = width / session.ratio;
@@ -2316,6 +2317,7 @@ function updateDocumentState() {
 function showStudio() {
   byId('welcome').hidden = true;
   byId('studio').hidden = false;
+  scheduleCanvasViewportUpdate();
 }
 
 async function showWelcome() {
@@ -2326,7 +2328,7 @@ async function showWelcome() {
 
 function applyModeLayout(mode) {
   const studio = byId('studio');
-  byId('canvas-shell').hidden = mode === 'source';
+  byId('canvas-stage').hidden = mode === 'source';
   byId('source-shell').hidden = mode !== 'source';
   studio.classList.toggle('source-mode', mode === 'source');
   studio.classList.toggle('browse-mode', mode === 'browse');
@@ -2453,33 +2455,69 @@ function externalPreview() {
   window.setTimeout(() => URL.revokeObjectURL(url), 15000);
 }
 
+const DEVICE_VIEWPORTS = Object.freeze({
+  desktop: { width: 1440, height: 900, label: '桌面' },
+  tablet: { width: 820, height: 1180, label: '平板' },
+  mobile: { width: 390, height: 844, label: '手机' },
+});
 let canvasZoom = 1;
+let canvasFitMode = true;
+let canvasFitFrame = 0;
+
+function currentViewport() {
+  return DEVICE_VIEWPORTS[byId('canvas-shell')?.dataset.device] || DEVICE_VIEWPORTS.desktop;
+}
 
 function updateCanvasInfo() {
   const shell = byId('canvas-shell');
   const iframe = shell?.classList.contains('browsing') ? byId('browse-canvas') : byId('design-canvas');
   if (!shell || !iframe) return;
   const device = shell.dataset.device || 'desktop';
-  const labels = { desktop: '桌面', tablet: '平板', mobile: '手机' };
+  const viewport = DEVICE_VIEWPORTS[device] || DEVICE_VIEWPORTS.desktop;
   const icon = pick('use', byId('canvas-info'));
   if (icon) icon.setAttribute('href', `#i-${device === 'desktop' ? 'monitor' : device}`);
-  byId('canvas-device-label').textContent = labels[device];
-  byId('canvas-size-label').textContent = `${Math.round(iframe.clientWidth)} × ${Math.round(iframe.clientHeight)}`;
+  byId('canvas-device-label').textContent = viewport.label;
+  byId('canvas-size-label').textContent = `${viewport.width} × ${viewport.height} · ${Math.round(canvasZoom * 100)}%`;
+  byId('zoom-fit-button').classList.toggle('active', canvasFitMode);
 }
 
-function setCanvasZoom(value, announce = true) {
-  canvasZoom = Math.min(1.5, Math.max(.5, Math.round(Number(value) * 10) / 10));
+function setCanvasZoom(value, announce = true, keepFitMode = false) {
+  if (!keepFitMode) canvasFitMode = false;
+  canvasZoom = Math.min(1.5, Math.max(.25, Math.round(Number(value) * 100) / 100));
   document.documentElement.style.setProperty('--canvas-scale', String(canvasZoom));
+  document.documentElement.style.setProperty('--canvas-ui-scale', String(1 / canvasZoom));
   byId('zoom-value').textContent = `${Math.round(canvasZoom * 100)}%`;
   if (announce) setStatus(`画布缩放 ${Math.round(canvasZoom * 100)}%`);
-  window.setTimeout(() => { canvas.updateOverlay(); updateCanvasInfo(); }, 190);
+  requestAnimationFrame(() => { canvas.updateOverlay(); updateCanvasInfo(); });
 }
 
-function fitCanvas() {
-  const device = byId('canvas-shell').dataset.device;
-  const naturalWidth = device === 'mobile' ? 390 : device === 'tablet' ? 820 : byId('workbench').clientWidth;
-  const available = Math.max(280, byId('workbench').clientWidth - 34);
-  setCanvasZoom(device === 'desktop' ? 1 : Math.min(1, available / naturalWidth));
+function fitCanvas(announce = true) {
+  const workbench = byId('workbench');
+  const viewport = currentViewport();
+  if (!workbench || workbench.clientWidth < 1 || workbench.clientHeight < 1) return;
+  const availableWidth = Math.max(220, workbench.clientWidth - 48);
+  const availableHeight = Math.max(220, workbench.clientHeight - 124);
+  const scale = Math.min(1, availableWidth / viewport.width, availableHeight / viewport.height);
+  canvasFitMode = true;
+  setCanvasZoom(scale, announce, true);
+}
+
+function scheduleCanvasViewportUpdate() {
+  window.cancelAnimationFrame(canvasFitFrame);
+  canvasFitFrame = window.requestAnimationFrame(() => {
+    if (canvasFitMode) fitCanvas(false);
+    else {
+      canvas.updateOverlay();
+      updateCanvasInfo();
+    }
+  });
+}
+
+function setCanvasDevice(device) {
+  if (!DEVICE_VIEWPORTS[device]) return;
+  byId('canvas-shell').dataset.device = device;
+  byId('canvas-stage').dataset.device = device;
+  fitCanvas(false);
 }
 
 function toggleRail(side) {
@@ -2663,7 +2701,7 @@ function bindActions() {
   pickAll('.device-button').forEach((button) => {
     button.onclick = () => {
       pickAll('.device-button').forEach((item) => item.classList.toggle('active', item === button));
-      byId('canvas-shell').dataset.device = button.dataset.device;
+      setCanvasDevice(button.dataset.device);
       setStatus(`已切换为${button.dataset.device === 'desktop' ? '桌面' : button.dataset.device === 'tablet' ? '平板' : '手机'}画布`);
       window.setTimeout(() => { canvas.updateOverlay(); updateCanvasInfo(); }, 190);
     };

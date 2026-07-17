@@ -6,6 +6,7 @@
   --topbar-height: 64px;
   --status-height: 30px;
   --canvas-scale: 1;
+  --canvas-ui-scale: 1;
 }
 
 .icon-sprite {
@@ -251,20 +252,20 @@ body.dragging-block iframe { pointer-events: none; }
 .canvas-hud { display: flex; position: absolute; z-index: 45; left: 14px; bottom: 14px; height: 34px; padding: 3px; align-items: center; gap: 2px; border: 1px solid rgba(20,26,38,.16); border-radius: 10px; background: rgba(18,22,30,.9); box-shadow: 0 8px 30px rgba(0,0,0,.2); color: #e7ebf3; backdrop-filter: blur(12px); }
 .canvas-hud button { display: grid; width: 27px; height: 27px; padding: 0; place-items: center; border: 0; border-radius: 6px; background: transparent; color: #aeb6c6; cursor: pointer; }
 .canvas-hud button:hover { background: #2a303d; color: white; }
+.canvas-hud button.active { background: color-mix(in srgb, var(--accent) 20%, #252c38); color: var(--accent); }
 .canvas-hud .zoom-value { width: 46px; font: 9px var(--mono); }
 .canvas-hud > span { width: 1px; height: 17px; background: #343b49; }
 .canvas-hud .icon { width: 14px; height: 14px; }
-.canvas-shell { width: calc(100% / var(--canvas-scale)); height: calc(100% / var(--canvas-scale)); transform: scale(var(--canvas-scale)); transform-origin: top center; transition: width 180ms ease, transform 180ms ease; }
-.canvas-shell[data-device="tablet"] { width: min(820px, calc(100% / var(--canvas-scale))); }
-.canvas-shell[data-device="mobile"] { width: min(390px, calc(100% / var(--canvas-scale))); }
-.selection-frame { border-color: var(--focus); border-radius: 1px; box-shadow: 0 0 0 1px rgba(255,255,255,.8) inset, 0 0 0 1px rgba(67,92,190,.15); }
+.canvas-stage { border-radius: 3px; transition: width 180ms ease, height 180ms ease; }
+.canvas-shell { width: var(--canvas-width); height: var(--canvas-height); transform: scale(var(--canvas-scale)); transform-origin: top left; transition: transform 180ms ease; }
+.selection-frame { border-width: calc(2px * var(--canvas-ui-scale)); border-color: var(--focus); border-radius: 1px; box-shadow: 0 0 0 calc(1px * var(--canvas-ui-scale)) rgba(255,255,255,.8) inset, 0 0 0 calc(1px * var(--canvas-ui-scale)) rgba(67,92,190,.15); }
 .selection-layer.editing .selection-frame { border-color: var(--accent-2); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-2) 22%, transparent); }
 .selection-layer.editing .selection-label { background: var(--accent-2); color: #07120a; }
 .selection-layer.editing .selection-label::after { content: " · EDIT"; font: 7px var(--mono); letter-spacing: .08em; }
-.hover-frame { border-color: color-mix(in srgb, var(--focus) 80%, transparent); background: color-mix(in srgb, var(--focus) 8%, transparent); }
-.selection-label { padding: 4px 7px; background: var(--focus); font-size: 9px; }
-.selection-size { position: absolute; min-width: 64px; padding: 3px 6px; border-radius: 4px; background: rgba(25,30,40,.92); color: #e8edf5; font: 8px var(--mono); text-align: center; white-space: nowrap; }
-.selection-actions { left: 50%; top: auto; bottom: 16px; max-width: calc(100% - 28px); gap: 2px; padding: 5px; overflow-x: auto; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(19,23,31,.96); box-shadow: 0 18px 50px rgba(0,0,0,.34); backdrop-filter: blur(12px); transform: translateX(-50%); scrollbar-width: none; }
+.hover-frame { border-width: calc(1px * var(--canvas-ui-scale)); border-color: color-mix(in srgb, var(--focus) 80%, transparent); background: color-mix(in srgb, var(--focus) 8%, transparent); }
+.selection-label { padding: 4px 7px; background: var(--focus); font-size: 9px; transform: scale(var(--canvas-ui-scale)); transform-origin: left bottom; }
+.selection-size { position: absolute; min-width: 64px; padding: 3px 6px; border-radius: 4px; background: rgba(25,30,40,.92); color: #e8edf5; font: 8px var(--mono); text-align: center; white-space: nowrap; transform: scale(var(--canvas-ui-scale)); transform-origin: right top; }
+.selection-actions { left: 50%; top: auto; bottom: calc(16px * var(--canvas-ui-scale)); max-width: calc(100% - 28px); gap: 2px; padding: 5px; overflow-x: auto; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(19,23,31,.96); box-shadow: 0 18px 50px rgba(0,0,0,.34); backdrop-filter: blur(12px); transform: translateX(-50%) scale(var(--canvas-ui-scale)); transform-origin: bottom center; scrollbar-width: none; }
 .selection-actions::-webkit-scrollbar { display: none; }
 .selection-actions.opening { animation: selection-menu-up 180ms cubic-bezier(.2,.8,.2,1) both; }
 .selection-menu-summary { display: grid; min-width: 94px; max-width: 150px; padding: 2px 8px; align-content: center; }
@@ -281,8 +282,8 @@ body.dragging-block iframe { pointer-events: none; }
 .selection-actions.moving .selection-grip { color: #fff; cursor: grabbing; }
 .selection-divider { width: 1px; height: 19px; margin: 4px 1px; background: #353c4a; }
 .selection-actions .danger-action:hover { background: rgba(255,90,104,.16); color: #ff8991; }
-.resize-knob { border-radius: 3px; background: var(--focus); }
-.drop-marker { background: #ff6d91; animation: marker-pulse .8s infinite alternate; }
+.resize-knob { border-radius: 3px; background: var(--focus); transform: scale(var(--canvas-ui-scale)); transform-origin: center; }
+.drop-marker { height: calc(3px * var(--canvas-ui-scale)); background: #ff6d91; animation: marker-pulse .8s infinite alternate; }
 .ai-drawer { overflow-y: auto; align-content: start; border-right: 0; scrollbar-gutter: stable; overscroll-behavior: contain; animation: ai-drawer-in 190ms cubic-bezier(.2,.8,.2,1) both; }
 .ai-log { min-height: 100px; max-height: min(34vh, 300px); }
 #ai-button.active { background: var(--accent-soft); color: var(--accent); }
@@ -444,7 +445,7 @@ body.dragging-file::after { animation: drop-in 170ms ease both; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.985); } }
 @keyframes toast-in { from { opacity: 0; transform: translateX(18px); } }
 @keyframes marker-pulse { to { box-shadow: 0 0 0 3px rgba(255,255,255,.85); } }
-@keyframes selection-menu-up { from { opacity: 0; transform: translate(-50%, 18px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes selection-menu-up { from { opacity: 0; transform: translate(-50%, 18px) scale(var(--canvas-ui-scale)); } to { opacity: 1; transform: translate(-50%, 0) scale(var(--canvas-ui-scale)); } }
 @keyframes ai-drawer-in { from { opacity: 0; transform: translateX(-12px); } }
 @keyframes drop-in { from { opacity: 0; transform: scale(.99); } }
 @keyframes status-pulse { 50% { opacity: .45; } }

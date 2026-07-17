@@ -7,6 +7,7 @@ const root = path.resolve(__dirname, '..');
 const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const app = fs.readFileSync(path.join(root, 'js', 'studio-app.js'), 'utf8');
 const previewHost = fs.readFileSync(path.join(root, 'preview-host.html'), 'utf8');
+const polish = fs.readFileSync(path.join(root, 'css', 'studio-polish.css'), 'utf8');
 
 test('separates the editable DOM canvas from the isolated interactive browser canvas', () => {
   const editFrame = index.match(/<iframe id="design-canvas"[^>]*>/)?.[0] || '';
@@ -65,4 +66,16 @@ test('serializes mode transitions and cancels stale canvas loads', () => {
   assert.match(app, /this\.pendingLoad\?\.cancel\(\)/);
   assert.match(app, /sequence !== this\.loadSequence/);
   assert.match(app, /模式切换失败 · 已恢复编辑画布/);
+});
+
+test('keeps a fixed device viewport and fits it without changing HTML layout width', () => {
+  assert.match(index, /id="canvas-stage"[^>]*data-device="desktop"/);
+  assert.match(app, /desktop: \{ width: 1440, height: 900/);
+  assert.match(app, /tablet: \{ width: 820, height: 1180/);
+  assert.match(app, /mobile: \{ width: 390, height: 844/);
+  assert.match(app, /availableWidth \/ viewport\.width/);
+  assert.match(app, /availableHeight \/ viewport\.height/);
+  assert.match(app, /canvasFitMode/);
+  assert.match(polish, /width: var\(--canvas-width\); height: var\(--canvas-height\)/);
+  assert.doesNotMatch(polish, /calc\(100% \/ var\(--canvas-scale\)\)/);
 });

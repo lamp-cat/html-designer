@@ -243,41 +243,43 @@
           <button class="zoom-value" id="zoom-value" type="button" title="恢复 100%">100%</button>
           <button class="tooltip" id="zoom-in-button" type="button" data-tooltip="放大"><svg class="icon"><use href="#i-zoom-in"></use></svg></button>
           <span></span>
-          <button class="tooltip" id="zoom-fit-button" type="button" data-tooltip="适应窗口"><svg class="icon"><use href="#i-fit"></use></svg></button>
+          <button class="tooltip" id="zoom-fit-button" type="button" aria-label="等比适应整个视口" data-tooltip="等比适应整个视口"><svg class="icon"><use href="#i-fit"></use></svg></button>
           <span></span>
           <button class="tooltip" id="hud-insert-button" type="button" data-tooltip="快速插入"><svg class="icon"><use href="#i-boxes"></use></svg></button>
         </div>
-        <div class="canvas-shell" id="canvas-shell" data-device="desktop">
-          <iframe id="design-canvas" title="HTML 设计画布" sandbox="allow-same-origin allow-forms"></iframe>
-          <iframe id="browse-canvas" title="HTML 浏览画布" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads" src="about:blank" hidden></iframe>
-          <div class="selection-layer" id="selection-layer" hidden>
-            <div class="selection-frame" id="selection-frame"></div>
-            <div class="selection-label" id="selection-label"></div>
-            <div class="selection-size" id="selection-size"></div>
-            <div class="selection-actions" id="selection-actions">
-              <span class="selection-menu-summary"><small id="selection-component-kind">通用元素</small><strong id="selection-menu-title">元素</strong></span>
-              <span class="selection-divider"></span>
-              <button class="tooltip component-settings-action" id="component-settings-button" type="button" data-command="component-settings" aria-label="编辑组件设置" data-tooltip="编辑组件设置"><svg class="icon"><use href="#i-sliders"></use></svg></button>
-              <button class="selection-grip tooltip" type="button" aria-label="拖动元素" data-tooltip="拖动元素"><svg class="icon"><use href="#i-grip"></use></svg></button>
-              <button class="tooltip" id="selection-text-action" type="button" data-command="edit" aria-label="编辑文字" data-tooltip="编辑文字"><svg class="icon"><use href="#i-edit"></use></svg></button>
-              <button class="tooltip" type="button" data-command="insert" aria-label="在此插入" data-tooltip="在此插入"><svg class="icon"><use href="#i-boxes"></use></svg></button>
-              <button class="tooltip" type="button" data-command="before" aria-label="上移" data-tooltip="上移"><svg class="icon"><use href="#i-up"></use></svg></button>
-              <button class="tooltip" type="button" data-command="after" aria-label="下移" data-tooltip="下移"><svg class="icon"><use href="#i-down"></use></svg></button>
-              <button class="tooltip" type="button" data-command="parent" aria-label="选择父元素" data-tooltip="选择父元素"><svg class="icon"><use href="#i-parent"></use></svg></button>
-              <span class="selection-divider context-divider" id="context-divider" hidden></span>
-              <span class="selection-context" id="selection-context"></span>
-              <span class="selection-divider"></span>
-              <button class="tooltip" type="button" data-command="review" aria-label="添加批注" data-tooltip="添加批注"><svg class="icon"><use href="#i-message"></use></svg></button>
-              <button class="tooltip" type="button" data-command="duplicate" aria-label="复制" data-tooltip="复制 ⌘D"><svg class="icon"><use href="#i-copy"></use></svg></button>
-              <button class="tooltip danger-action" type="button" data-command="remove" aria-label="删除" data-tooltip="删除"><svg class="icon"><use href="#i-trash"></use></svg></button>
-              <button class="tooltip" type="button" data-command="deselect" aria-label="关闭编辑菜单" data-tooltip="关闭">×</button>
+        <div class="canvas-stage" id="canvas-stage" data-device="desktop">
+          <div class="canvas-shell" id="canvas-shell" data-device="desktop">
+            <iframe id="design-canvas" title="HTML 设计画布" sandbox="allow-same-origin allow-forms"></iframe>
+            <iframe id="browse-canvas" title="HTML 浏览画布" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads" src="about:blank" hidden></iframe>
+            <div class="selection-layer" id="selection-layer" hidden>
+              <div class="selection-frame" id="selection-frame"></div>
+              <div class="selection-label" id="selection-label"></div>
+              <div class="selection-size" id="selection-size"></div>
+              <div class="selection-actions" id="selection-actions">
+                <span class="selection-menu-summary"><small id="selection-component-kind">通用元素</small><strong id="selection-menu-title">元素</strong></span>
+                <span class="selection-divider"></span>
+                <button class="tooltip component-settings-action" id="component-settings-button" type="button" data-command="component-settings" aria-label="编辑组件设置" data-tooltip="编辑组件设置"><svg class="icon"><use href="#i-sliders"></use></svg></button>
+                <button class="selection-grip tooltip" type="button" aria-label="拖动元素" data-tooltip="拖动元素"><svg class="icon"><use href="#i-grip"></use></svg></button>
+                <button class="tooltip" id="selection-text-action" type="button" data-command="edit" aria-label="编辑文字" data-tooltip="编辑文字"><svg class="icon"><use href="#i-edit"></use></svg></button>
+                <button class="tooltip" type="button" data-command="insert" aria-label="在此插入" data-tooltip="在此插入"><svg class="icon"><use href="#i-boxes"></use></svg></button>
+                <button class="tooltip" type="button" data-command="before" aria-label="上移" data-tooltip="上移"><svg class="icon"><use href="#i-up"></use></svg></button>
+                <button class="tooltip" type="button" data-command="after" aria-label="下移" data-tooltip="下移"><svg class="icon"><use href="#i-down"></use></svg></button>
+                <button class="tooltip" type="button" data-command="parent" aria-label="选择父元素" data-tooltip="选择父元素"><svg class="icon"><use href="#i-parent"></use></svg></button>
+                <span class="selection-divider context-divider" id="context-divider" hidden></span>
+                <span class="selection-context" id="selection-context"></span>
+                <span class="selection-divider"></span>
+                <button class="tooltip" type="button" data-command="review" aria-label="添加批注" data-tooltip="添加批注"><svg class="icon"><use href="#i-message"></use></svg></button>
+                <button class="tooltip" type="button" data-command="duplicate" aria-label="复制" data-tooltip="复制 ⌘D"><svg class="icon"><use href="#i-copy"></use></svg></button>
+                <button class="tooltip danger-action" type="button" data-command="remove" aria-label="删除" data-tooltip="删除"><svg class="icon"><use href="#i-trash"></use></svg></button>
+                <button class="tooltip" type="button" data-command="deselect" aria-label="关闭编辑菜单" data-tooltip="关闭">×</button>
+              </div>
+              <button class="resize-knob resize-x" type="button" data-resize="x" aria-label="调整宽度"></button>
+              <button class="resize-knob resize-y" type="button" data-resize="y" aria-label="调整高度"></button>
+              <button class="resize-knob resize-xy" type="button" data-resize="xy" aria-label="调整尺寸"></button>
             </div>
-            <button class="resize-knob resize-x" type="button" data-resize="x" aria-label="调整宽度"></button>
-            <button class="resize-knob resize-y" type="button" data-resize="y" aria-label="调整高度"></button>
-            <button class="resize-knob resize-xy" type="button" data-resize="xy" aria-label="调整尺寸"></button>
+            <div class="hover-frame" id="hover-frame" hidden></div>
+            <div class="drop-marker" id="drop-marker" hidden></div>
           </div>
-          <div class="hover-frame" id="hover-frame" hidden></div>
-          <div class="drop-marker" id="drop-marker" hidden></div>
         </div>
         <div class="source-shell" id="source-shell" hidden>
           <div class="source-head"><span><svg class="icon"><use href="#i-code"></use></svg>HTML SOURCE</span><div><small id="source-stats">0 行 · 0 字符</small><small>切回画布时会重新解析文档</small></div></div>
