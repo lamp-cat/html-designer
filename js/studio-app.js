@@ -82,11 +82,33 @@ const BLOCKS = [
 
 const VOID_TAGS = new Set(['AREA', 'BASE', 'BR', 'COL', 'EMBED', 'HR', 'IMG', 'INPUT', 'LINK', 'META', 'PARAM', 'SOURCE', 'TRACK', 'WBR']);
 const FORBIDDEN_SELECT = new Set(['HTML', 'HEAD', 'META', 'LINK', 'STYLE', 'SCRIPT', 'TITLE', 'BASE']);
+const FLOW_CONTAINERS = new Set(['BODY', 'MAIN', 'SECTION', 'ARTICLE', 'ASIDE', 'NAV', 'HEADER', 'FOOTER', 'DIV', 'FORM', 'FIGURE', 'FIGCAPTION', 'BLOCKQUOTE', 'DETAILS', 'DIALOG', 'FIELDSET', 'LI', 'DD', 'TD', 'TH']);
+const PHRASING_CONTAINERS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'A', 'BUTTON', 'LABEL', 'SPAN', 'STRONG', 'EM', 'SMALL', 'MARK', 'SUMMARY', 'DT']);
+const PHRASING_CONTENT = new Set(['A', 'ABBR', 'B', 'BDI', 'BDO', 'BR', 'BUTTON', 'CITE', 'CODE', 'DATA', 'DEL', 'EM', 'I', 'IMG', 'INPUT', 'INS', 'KBD', 'LABEL', 'MARK', 'Q', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TIME', 'U', 'VAR', 'WBR']);
 
 function escapeText(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   })[char]);
+}
+
+function iconMarkup(name, className = 'icon') {
+  return `<svg class="${escapeText(className)}" aria-hidden="true"><use href="#i-${escapeText(name)}"></use></svg>`;
+}
+
+async function copyText(value, message = '已复制') {
+  try {
+    await navigator.clipboard.writeText(String(value || ''));
+    toast(message, 'success');
+  } catch {
+    toast('复制失败，请检查浏览器权限', 'error');
+  }
+}
+
+function setStatus(message) {
+  const target = byId('status-text');
+  if (!target) return;
+  target.innerHTML = `<i></i>${escapeText(message || '准备就绪')}`;
 }
 
 function safeJson(value, fallback) {
@@ -147,6 +169,18 @@ class ModalService {
       await navigator.clipboard.writeText(newText);
       toast('已复制编辑器内容', 'success');
     };
+  }
+
+  shortcuts() {
+    const rows = [
+      ['保存文档', ['⌘', 'S']], ['撤销', ['⌘', 'Z']], ['重做', ['⇧', '⌘', 'Z']],
+      ['复制元素', ['⌘', 'D']], ['删除元素', ['⌫']], ['选择父元素', ['⇧', '↑']],
+      ['元素上移', ['⌥', '↑']], ['元素下移', ['⌥', '↓']], ['沉浸预览', ['P']],
+      ['命令面板', ['⌘', 'K']], ['取消选择 / 退出', ['Esc']], ['快捷键帮助', ['?']],
+      ['组件搜索', ['/']], ['快速插入组件', ['I']],
+    ];
+    this.root.innerHTML = `<section class="modal-card shortcuts" role="dialog" aria-modal="true" aria-label="快捷键"><header class="modal-head"><h2>快捷键</h2><button type="button" data-close aria-label="关闭">×</button></header><div class="modal-body"><p class="shortcut-intro">用键盘完成高频操作。Windows 和 Linux 上请使用 Ctrl 代替 ⌘。</p><div class="shortcut-grid">${rows.map(([label, keys]) => `<div class="shortcut-row"><strong>${escapeText(label)}</strong><span>${keys.map((key) => `<kbd>${escapeText(key)}</kbd>`).join('')}</span></div>`).join('')}</div></div><footer class="modal-foot"><button class="primary" type="button" data-close-footer>知道了</button></footer></section>`;
+    pickAll('[data-close], [data-close-footer]', this.root).forEach((button) => { button.onclick = () => this.close(); });
   }
 }
 
@@ -281,11 +315,14 @@ class CanvasController {
     this.layer = byId('selection-layer');
     this.frame = byId('selection-frame');
     this.label = byId('selection-label');
+    this.size = byId('selection-size');
     this.actions = byId('selection-actions');
     this.hover = byId('hover-frame');
     this.dropMarker = byId('drop-marker');
     this.preview = false;
     this.resizeSession = null;
+    this.moveSession = null;
+    this.blockDragSession = null;
     this.dropTarget = null;
     this.initParentEvents();
   }
@@ -298,10 +335,12 @@ class CanvasController {
     pickAll('[data-resize]', this.layer).forEach((handle) => {
       handle.addEventListener('pointerdown', (event) => this.beginResize(event, handle.dataset.resize));
     });
-    document.addEventListener('pointermove', (event) => this.updateResize(event));
-    document.addEventListener('pointerup', () => this.endResize());
+    pick('.selection-grip', this.actions)?.addEventListener('pointerdown', (event) => this.beginMove(event));
+    document.addEventListener('pointermove', (event) => { this.updateResize(event); this.updateMove(event); this.updateBlockDrag(event); });
+    document.addEventListener('pointerup', (event) => { this.endResize(); this.endMove(); this.endBlockDrag(event); });
+    document.addEventListener('pointercancel', (event) => this.endBlockDrag(event, true));
     window.addEventListener('resize', () => this.updateOverlay());
-    new ResizeObserver(() => this.updateOverlay()).observe(this.shell);
+    new ResizeObserver(() => { this.updateOverlay(); updateCanvasInfo(); }).observe(this.shell);
   }
 
   async load(html, options = {}) {
@@ -316,6 +355,7 @@ class CanvasController {
           if (previousSelection) model.signal('selection', null);
           this.wireDocument(model.doc);
           this.updateOverlay();
+          updateCanvasInfo();
           model.signal('document', model.doc);
           if (!options.preserveHistory) model.resetHistory(source);
           resolve(model.doc);
@@ -328,6 +368,7 @@ class CanvasController {
   wireDocument(doc) {
     if (!doc?.body) return;
     doc.addEventListener('click', (event) => {
+      if (event.target.closest?.('[data-hd-editing="true"]')) return;
       const link = event.target.closest?.('a');
       if (link) {
         event.preventDefault();
@@ -342,6 +383,7 @@ class CanvasController {
     doc.addEventListener('submit', (event) => event.preventDefault(), true);
     doc.addEventListener('dblclick', (event) => {
       if (this.preview) return;
+      if (event.target.closest?.('[data-hd-editing="true"]')) return;
       event.preventDefault();
       this.editText(event.target);
     }, true);
@@ -364,21 +406,44 @@ class CanvasController {
     }
   }
 
+  editableTextTarget(element) {
+    if (!element || element.childElementCount === 0) return element;
+    const selector = 'h1,h2,h3,h4,h5,h6,p,a,button,span,li,dt,dd,figcaption,summary,strong,em,small';
+    return Array.from(element.querySelectorAll(selector)).find((candidate) => candidate.childElementCount === 0 && candidate.textContent.trim()) || element;
+  }
+
   editText(element = model.selected) {
-    if (!element || FORBIDDEN_SELECT.has(element.tagName)) return;
+    element = this.editableTextTarget(element);
+    if (!element || FORBIDDEN_SELECT.has(element.tagName) || VOID_TAGS.has(element.tagName)) return;
+    if (['INPUT', 'TEXTAREA', 'SELECT', 'OPTION'].includes(element.tagName)) {
+      toast('请在属性检查器中编辑表单内容', 'error');
+      return;
+    }
+    if (element.dataset.hdEditing === 'true') return;
     model.select(element);
     const before = element.innerHTML;
+    const spellcheckBefore = element.getAttribute('spellcheck');
+    let finished = false;
     element.contentEditable = 'true';
     element.dataset.hdEditing = 'true';
+    element.spellcheck = true;
+    this.layer.classList.add('editing');
     element.focus();
     const finish = (cancel = false) => {
+      if (finished) return;
+      finished = true;
       if (cancel) element.innerHTML = before;
       element.removeAttribute('contenteditable');
+      if (spellcheckBefore === null) element.removeAttribute('spellcheck'); else element.setAttribute('spellcheck', spellcheckBefore);
       delete element.dataset.hdEditing;
       element.removeEventListener('blur', onBlur);
       element.removeEventListener('keydown', onKey);
-      if (!cancel) model.checkpoint('编辑文字');
+      this.layer.classList.remove('editing');
+      const changed = element.innerHTML !== before;
+      if (!cancel && changed) model.checkpoint('编辑文字');
+      renderInspectors();
       this.updateOverlay();
+      setStatus(cancel ? '已取消文字编辑' : changed ? '文字已更新' : '文字未修改');
     };
     const onBlur = () => finish(false);
     const onKey = (event) => {
@@ -392,6 +457,7 @@ class CanvasController {
     const selection = element.ownerDocument.getSelection();
     selection.removeAllRanges();
     selection.addRange(range);
+    setStatus('正在编辑文字 · Enter 完成 · Esc 取消');
   }
 
   showHover(element) {
@@ -414,14 +480,25 @@ class CanvasController {
       this.layer.hidden = true;
       return;
     }
+    renderSelectionContext(element);
+    this.layer.hidden = false;
     const rect = element.getBoundingClientRect();
     const left = rect.left;
     const top = rect.top;
     Object.assign(this.frame.style, { left: `${left}px`, top: `${top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
     this.label.textContent = this.describe(element);
     Object.assign(this.label.style, { left: `${left}px`, top: `${Math.max(0, top - 20)}px` });
+    const width = Math.round(rect.width);
+    const height = Math.round(rect.height);
+    this.size.textContent = `${width} × ${height}`;
+    const sizeTop = top + rect.height + 24 < this.iframe.clientHeight ? top + rect.height + 5 : Math.max(1, top + rect.height - 20);
+    const sizeLeft = Math.min(Math.max(2, left + rect.width - 66), Math.max(2, this.iframe.clientWidth - 68));
+    Object.assign(this.size.style, { left: `${sizeLeft}px`, top: `${sizeTop}px` });
+    const summarySize = byId('summary-size');
+    if (summarySize) summarySize.textContent = `${width} × ${height}`;
     const toolbarTop = top > 42 ? top - 36 : top + rect.height + 7;
-    Object.assign(this.actions.style, { left: `${Math.max(2, left)}px`, top: `${Math.max(2, toolbarTop)}px` });
+    const toolbarLeft = Math.min(Math.max(2, left), Math.max(2, this.iframe.clientWidth - this.actions.offsetWidth - 4));
+    Object.assign(this.actions.style, { left: `${toolbarLeft}px`, top: `${Math.max(2, toolbarTop)}px` });
     const knobs = {
       x: [left + rect.width - 5, top + rect.height / 2 - 5],
       y: [left + rect.width / 2 - 5, top + rect.height - 5],
@@ -431,7 +508,6 @@ class CanvasController {
       const handle = pick(`[data-resize="${key}"]`, this.layer);
       Object.assign(handle.style, { left: `${x}px`, top: `${y}px` });
     });
-    this.layer.hidden = false;
     renderPath();
   }
 
@@ -442,10 +518,16 @@ class CanvasController {
   }
 
   runCommand(command) {
+    if (command === 'insert') return openInsertPalette();
     const element = model.selected;
     if (!element) return;
     if (command === 'edit') return this.editText(element);
     if (command === 'review') return ai.openReview();
+    if (command === 'parent') {
+      const parent = element.parentElement;
+      if (parent && parent !== model.doc.documentElement) model.select(parent);
+      return;
+    }
     if (command === 'duplicate') {
       const copy = element.cloneNode(true);
       element.after(copy);
@@ -466,6 +548,38 @@ class CanvasController {
       element.parentElement.insertBefore(element.nextElementSibling, element);
       model.checkpoint('元素下移');
     }
+    if ((command === 'list-before' || command === 'list-after') && element.tagName === 'LI') {
+      const item = element.cloneNode(false);
+      item.textContent = '新的列表项';
+      if (command === 'list-before') element.before(item); else element.after(item);
+      model.select(item);
+      model.checkpoint('添加列表项');
+    }
+    if ((command === 'row-before' || command === 'row-after') && element.closest('tr')) {
+      const row = element.closest('tr');
+      const newRow = row.cloneNode(true);
+      Array.from(newRow.cells).forEach((cell) => { cell.textContent = '新单元格'; });
+      if (command === 'row-before') row.before(newRow); else row.after(newRow);
+      model.select(newRow.cells[0] || newRow);
+      model.checkpoint('添加表格行');
+    }
+    if ((command === 'col-before' || command === 'col-after') && element.closest('tr')) {
+      const cell = element.closest('th,td');
+      const table = element.closest('table');
+      if (cell && table) {
+        const index = cell.cellIndex + (command === 'col-after' ? 1 : 0);
+        Array.from(table.rows).forEach((row) => {
+          const reference = row.cells[Math.min(index, row.cells.length - 1)];
+          const newCell = model.doc.createElement(row.parentElement?.tagName === 'THEAD' ? 'th' : 'td');
+          if (reference?.getAttribute('style')) newCell.setAttribute('style', reference.getAttribute('style'));
+          newCell.textContent = '新单元格';
+          if (index >= row.cells.length) row.append(newCell); else row.insertBefore(newCell, row.cells[index]);
+        });
+        model.checkpoint('添加表格列');
+      }
+    }
+    renderTree();
+    setStatus(model.history[model.cursor]?.label || '已更新元素');
     this.updateOverlay();
   }
 
@@ -476,6 +590,40 @@ class CanvasController {
     event.currentTarget.setPointerCapture?.(event.pointerId);
     const rect = element.getBoundingClientRect();
     this.resizeSession = { element, axis, x: event.clientX, y: event.clientY, width: rect.width, height: rect.height, ratio: rect.width / Math.max(1, rect.height), changed: false };
+  }
+
+  beginMove(event) {
+    const element = model.selected;
+    if (!element) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    this.moveSession = { element, x: event.clientX, y: event.clientY, transform: element.style.transform || '', changed: false };
+    this.actions.classList.add('moving');
+    setStatus('正在移动元素 · 松开鼠标完成');
+  }
+
+  updateMove(event) {
+    const session = this.moveSession;
+    if (!session) return;
+    const dx = Math.round((event.clientX - session.x) / canvasZoom);
+    const dy = Math.round((event.clientY - session.y) / canvasZoom);
+    session.element.style.transform = `${session.transform} translate(${dx}px, ${dy}px)`.trim();
+    session.changed = Math.abs(dx) + Math.abs(dy) > 1;
+    model.setDirty(true);
+    this.updateOverlay();
+  }
+
+  endMove() {
+    const session = this.moveSession;
+    if (!session) return;
+    if (!session.changed) session.element.style.transform = session.transform;
+    else {
+      model.checkpoint('自由移动元素');
+      setStatus('已自由移动元素');
+      toast('元素位置已更新', 'success');
+    }
+    this.actions.classList.remove('moving');
+    this.moveSession = null;
   }
 
   updateResize(event) {
@@ -497,6 +645,92 @@ class CanvasController {
     if (!this.resizeSession) return;
     if (this.resizeSession.changed) model.checkpoint('调整尺寸');
     this.resizeSession = null;
+  }
+
+  beginBlockDrag(event, index, item) {
+    if (event.button !== 0 || event.target.closest('button') || !model.doc) return;
+    this.blockDragSession = {
+      pointerId: event.pointerId,
+      index,
+      item,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      node: null,
+      target: null,
+      position: 'after',
+      ghost: null,
+    };
+    item.setPointerCapture?.(event.pointerId);
+  }
+
+  updateBlockDrag(event) {
+    const session = this.blockDragSession;
+    if (!session || session.pointerId !== event.pointerId) return;
+    const distance = Math.hypot(event.clientX - session.startX, event.clientY - session.startY);
+    if (!session.active && distance < 6) return;
+    if (!session.active) {
+      session.active = true;
+      session.node = this.createNode(BLOCKS[session.index]?.[3]);
+      session.ghost = session.item.cloneNode(true);
+      session.ghost.className = 'block-drag-ghost';
+      session.ghost.querySelector('button')?.remove();
+      document.body.append(session.ghost);
+      session.item.classList.add('dragging');
+      document.body.classList.add('dragging-block');
+    }
+    event.preventDefault();
+    Object.assign(session.ghost.style, { left: `${event.clientX + 14}px`, top: `${event.clientY + 14}px` });
+    const iframeRect = this.iframe.getBoundingClientRect();
+    const inside = event.clientX >= iframeRect.left && event.clientX <= iframeRect.right && event.clientY >= iframeRect.top && event.clientY <= iframeRect.bottom;
+    if (!inside || !session.node) {
+      session.target = null;
+      this.dropMarker.hidden = true;
+      return;
+    }
+    const scaleX = iframeRect.width / Math.max(1, this.iframe.clientWidth);
+    const scaleY = iframeRect.height / Math.max(1, this.iframe.clientHeight);
+    const localX = (event.clientX - iframeRect.left) / Math.max(.01, scaleX);
+    const localY = (event.clientY - iframeRect.top) / Math.max(.01, scaleY);
+    let target = model.doc.elementFromPoint(localX, localY);
+    if (target?.tagName === 'HTML') target = model.doc.body;
+    if (!target || FORBIDDEN_SELECT.has(target.tagName)) {
+      session.target = null;
+      this.dropMarker.hidden = true;
+      return;
+    }
+    const rect = target.getBoundingClientRect();
+    const ratio = (localY - rect.top) / Math.max(1, rect.height);
+    let position = ratio < .28 ? 'before' : ratio > .72 ? 'after' : 'inside';
+    if (position === 'inside' && !this.canContain(target, session.node)) position = 'after';
+    session.target = target;
+    session.position = position;
+    const y = position === 'before' ? rect.top : position === 'after' ? rect.bottom : rect.top + rect.height / 2;
+    Object.assign(this.dropMarker.style, { left: `${rect.left}px`, top: `${y}px`, width: `${Math.max(28, rect.width)}px` });
+    this.dropMarker.hidden = false;
+  }
+
+  endBlockDrag(event, cancel = false) {
+    const session = this.blockDragSession;
+    if (!session || session.pointerId !== event.pointerId) return;
+    if (session.active) {
+      session.item.dataset.blockDragged = 'true';
+      window.setTimeout(() => { delete session.item.dataset.blockDragged; }, 0);
+      if (!cancel && session.target) {
+        const node = this.createNode(BLOCKS[session.index]?.[3]);
+        if (this.insertNode(node, session.target, session.position)) {
+          const name = BLOCKS[session.index]?.[1] || '组件';
+          setStatus(`已拖入${name}`);
+          toast(`已拖入${name}`, 'success');
+        }
+      }
+    }
+    if (session.item.hasPointerCapture?.(session.pointerId)) session.item.releasePointerCapture(session.pointerId);
+    session.item.classList.remove('dragging');
+    session.ghost?.remove();
+    document.body.classList.remove('dragging-block');
+    this.dropMarker.hidden = true;
+    this.blockDragSession = null;
   }
 
   dragOver(event) {
@@ -537,11 +771,24 @@ class CanvasController {
     return template.content.firstElementChild;
   }
 
-  canContain(element) { return Boolean(element && !VOID_TAGS.has(element.tagName) && !['TABLE', 'TBODY', 'THEAD', 'TFOOT', 'TR', 'SELECT'].includes(element.tagName)); }
+  canContain(element, node = null) {
+    if (!element || VOID_TAGS.has(element.tagName)) return false;
+    const childTag = node?.tagName;
+    if (FLOW_CONTAINERS.has(element.tagName)) return true;
+    if (PHRASING_CONTAINERS.has(element.tagName)) return Boolean(childTag && PHRASING_CONTENT.has(childTag));
+    if (['UL', 'OL'].includes(element.tagName)) return childTag === 'LI';
+    if (element.tagName === 'DL') return ['DT', 'DD'].includes(childTag);
+    if (element.tagName === 'TABLE') return ['CAPTION', 'COLGROUP', 'THEAD', 'TBODY', 'TFOOT', 'TR'].includes(childTag);
+    if (['THEAD', 'TBODY', 'TFOOT'].includes(element.tagName)) return childTag === 'TR';
+    if (element.tagName === 'TR') return ['TD', 'TH'].includes(childTag);
+    if (element.tagName === 'SELECT') return ['OPTION', 'OPTGROUP'].includes(childTag);
+    if (element.tagName === 'PICTURE') return ['SOURCE', 'IMG'].includes(childTag);
+    return false;
+  }
 
   insertNode(node, target = model.selected || model.doc?.body, position = 'inside') {
     if (!node || !target || node === target || node.contains(target)) return false;
-    if (position === 'inside' && this.canContain(target)) target.append(node);
+    if (position === 'inside' && this.canContain(target, node)) target.append(node);
     else if (position === 'before' && target.parentElement) target.before(node);
     else if (target.parentElement) target.after(node);
     else model.doc.body.append(node);
@@ -562,14 +809,44 @@ class CanvasController {
 
 const canvas = new CanvasController();
 
+function renderSelectionContext(element) {
+  const root = byId('selection-context');
+  const divider = byId('context-divider');
+  if (!root || !divider) return;
+  const commands = [];
+  if (element?.tagName === 'LI') {
+    commands.push(['list-before', '上方添加列表项', 'up'], ['list-after', '下方添加列表项', 'down']);
+  } else if (element?.closest?.('th,td')) {
+    commands.push(['row-after', '下方添加行', 'down'], ['col-after', '右侧添加列', 'external']);
+  }
+  root.innerHTML = commands.map(([command, label, icon]) => `<button class="tooltip" type="button" data-command="${command}" aria-label="${escapeText(label)}" data-tooltip="${escapeText(label)}">${iconMarkup(icon)}</button>`).join('');
+  divider.hidden = !commands.length;
+}
+
+function insertBlock(index) {
+  const block = BLOCKS[Number(index)];
+  if (!block || !model.doc) return false;
+  const node = canvas.createNode(block[3]);
+  const target = model.selected || model.doc.body;
+  const position = !model.selected || canvas.canContain(target, node) ? 'inside' : 'after';
+  const inserted = node && canvas.insertNode(node, target, position);
+  if (inserted) {
+    setStatus(`已插入${block[1]}`);
+    toast(`已插入${block[1]}`, 'success');
+  }
+  return Boolean(inserted);
+}
+
 function renderBlocks(filter = '') {
   const root = byId('block-list');
   const query = filter.trim().toLowerCase();
   root.replaceChildren();
   let previousGroup = '';
+  let matches = 0;
   BLOCKS.forEach((block, index) => {
     const [group, name, symbol, html] = block;
     if (query && !`${group} ${name} ${html}`.toLowerCase().includes(query)) return;
+    matches += 1;
     if (group !== previousGroup) {
       const heading = document.createElement('div');
       heading.className = 'block-group';
@@ -579,45 +856,101 @@ function renderBlocks(filter = '') {
     }
     const item = document.createElement('div');
     item.className = 'block-item';
-    item.draggable = true;
+    item.tabIndex = 0;
+    item.dataset.blockIndex = String(index);
     const rootTag = html.match(/^\s*<([a-z][a-z0-9-]*)/i)?.[1]?.toLowerCase() || 'html';
-    item.innerHTML = `<span class="block-symbol">${escapeText(symbol)}</span><span><strong>${escapeText(name)}</strong><small>${escapeText(rootTag)}</small></span>`;
-    item.addEventListener('dragstart', (event) => {
-      event.dataTransfer.effectAllowed = 'copy';
-      event.dataTransfer.setData('application/x-html-designer-block', String(index));
+    item.innerHTML = `<span class="block-symbol">${escapeText(symbol)}</span><span><strong>${escapeText(name)}</strong><small>${escapeText(rootTag)}</small></span><button class="block-insert" type="button" aria-label="插入${escapeText(name)}">+</button>`;
+    item.addEventListener('pointerdown', (event) => canvas.beginBlockDrag(event, index, item));
+    item.addEventListener('click', (event) => {
+      if (event.target.closest('button') || item.dataset.blockDragged) return;
+      insertBlock(index);
     });
-    item.addEventListener('dblclick', () => {
-      const node = canvas.createNode(html);
-      if (node) canvas.insertNode(node, model.selected || model.doc?.body, canvas.canContain(model.selected) ? 'inside' : 'after');
+    item.addEventListener('keydown', (event) => {
+      if (!['Enter', ' '].includes(event.key) || event.target.closest('button')) return;
+      event.preventDefault();
+      insertBlock(index);
     });
+    pick('.block-insert', item).addEventListener('click', (event) => { event.stopPropagation(); insertBlock(index); });
     root.append(item);
   });
+  if (!matches) root.innerHTML = emptyStateMarkup('search', '没有找到组件', '试试“卡片”“双栏”或“按钮”。');
+}
+
+const collapsedElements = new WeakSet();
+let treeDragElement = null;
+
+function clearTreeDropState() {
+  pickAll('.tree-row.drag-before, .tree-row.drag-inside, .tree-row.drag-after').forEach((row) => row.classList.remove('drag-before', 'drag-inside', 'drag-after'));
 }
 
 function renderTree() {
   const root = byId('element-tree');
   root.replaceChildren();
   if (!model.doc?.body) {
-    root.innerHTML = '<p class="empty-note">打开文档后显示页面结构</p>';
+    root.innerHTML = emptyStateMarkup('tree', '结构树等待文档', '打开或新建 HTML 后，页面层级会显示在这里。');
     return;
   }
   const appendElement = (element, depth) => {
     const row = document.createElement('div');
-    row.className = `tree-row${element === model.selected ? ' selected' : ''}`;
+    const collapsed = collapsedElements.has(element);
+    row.className = `tree-row${element === model.selected ? ' selected' : ''}${collapsed ? ' collapsed' : ''}`;
     row.style.paddingLeft = `${Math.min(14, depth) * 11}px`;
     row.draggable = element !== model.doc.body;
-    const toggle = document.createElement('button');
+    const toggle = document.createElement(element.children.length ? 'button' : 'span');
     toggle.className = 'tree-toggle';
-    toggle.type = 'button';
-    toggle.textContent = element.children.length ? '⌄' : '·';
+    if (element.children.length) toggle.type = 'button';
+    toggle.innerHTML = element.children.length ? iconMarkup('down') : '<span class="tree-dot"></span>';
+    if (element.children.length) toggle.setAttribute('aria-label', collapsed ? '展开' : '折叠');
     const label = document.createElement('span');
     label.className = 'tree-label';
     label.textContent = canvas.describe(element);
     row.append(toggle, label);
+    if (element.children.length) {
+      toggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (collapsedElements.has(element)) collapsedElements.delete(element); else collapsedElements.add(element);
+        renderTree();
+      });
+    }
     row.addEventListener('click', (event) => { if (!event.target.closest('.tree-toggle')) model.select(element); });
-    row.addEventListener('dragstart', (event) => event.dataTransfer.setData('application/x-html-designer-path', JSON.stringify(model.elementPath(element))));
+    row.addEventListener('dragstart', (event) => {
+      treeDragElement = element;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('application/x-html-designer-path', JSON.stringify(model.elementPath(element)));
+      window.setTimeout(() => row.classList.add('dragging'), 0);
+    });
+    row.addEventListener('dragover', (event) => {
+      if (!treeDragElement || treeDragElement === element || treeDragElement.contains(element)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      clearTreeDropState();
+      const rect = row.getBoundingClientRect();
+      const ratio = (event.clientY - rect.top) / Math.max(1, rect.height);
+      const position = ratio < .28 ? 'before' : ratio > .72 || !canvas.canContain(element, treeDragElement) ? 'after' : 'inside';
+      row.classList.add(`drag-${position}`);
+      row.dataset.dropPosition = position;
+      event.dataTransfer.dropEffect = 'move';
+    });
+    row.addEventListener('dragleave', (event) => {
+      if (!row.contains(event.relatedTarget)) row.classList.remove('drag-before', 'drag-inside', 'drag-after');
+    });
+    row.addEventListener('drop', (event) => {
+      if (!treeDragElement) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const position = row.dataset.dropPosition || 'after';
+      const moved = canvas.insertNode(treeDragElement, element, position);
+      clearTreeDropState();
+      treeDragElement = null;
+      if (moved) setStatus(`已移动到 ${canvas.describe(element)} ${position === 'inside' ? '内部' : position === 'before' ? '之前' : '之后'}`);
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      clearTreeDropState();
+      treeDragElement = null;
+    });
     root.append(row);
-    Array.from(element.children).filter((child) => !['SCRIPT', 'STYLE'].includes(child.tagName)).forEach((child) => appendElement(child, depth + 1));
+    if (!collapsed) Array.from(element.children).filter((child) => !['SCRIPT', 'STYLE'].includes(child.tagName)).forEach((child) => appendElement(child, depth + 1));
   };
   appendElement(model.doc.body, 0);
 }
@@ -635,6 +968,81 @@ function renderPath() {
     button.onclick = () => model.select(element);
     root.append(button);
   });
+  byId('selection-utilities').hidden = !model.selected;
+}
+
+function cssSelectorPath(element = model.selected) {
+  if (!element) return '';
+  const parts = [];
+  let node = element;
+  while (node && node.nodeType === 1 && node !== model.doc.documentElement) {
+    let part = node.tagName.toLowerCase();
+    if (node.id) {
+      const safeId = window.CSS?.escape ? window.CSS.escape(node.id) : node.id.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+      parts.unshift(`${part}#${safeId}`);
+      break;
+    }
+    const siblings = node.parentElement ? Array.from(node.parentElement.children).filter((item) => item.tagName === node.tagName) : [];
+    if (siblings.length > 1) part += `:nth-of-type(${siblings.indexOf(node) + 1})`;
+    parts.unshift(part);
+    node = node.parentElement;
+  }
+  return parts.join(' > ');
+}
+
+function updateSourceStats() {
+  const source = byId('source-editor')?.value || '';
+  const lines = source ? source.split(/\r?\n/).length : 0;
+  const target = byId('source-stats');
+  if (target) target.textContent = `${lines} 行 · ${source.length.toLocaleString()} 字符`;
+}
+
+function emptyStateMarkup(icon, title, copy) {
+  return `<div class="product-empty">${iconMarkup(icon, 'icon product-empty-icon')}<strong>${escapeText(title)}</strong><p>${escapeText(copy)}</p></div>`;
+}
+
+function renderSelectionSummary(element = model.selected) {
+  const root = byId('inspector-summary');
+  if (!root) return;
+  if (!element?.isConnected) {
+    root.hidden = true;
+    return;
+  }
+  const rect = element.getBoundingClientRect();
+  byId('summary-tag').textContent = element.tagName.length > 7 ? `${element.tagName.slice(0, 6)}…` : element.tagName;
+  byId('summary-name').textContent = canvas.describe(element);
+  byId('summary-selector').textContent = cssSelectorPath(element) || element.tagName.toLowerCase();
+  byId('summary-size').textContent = `${Math.round(rect.width)} × ${Math.round(rect.height)}`;
+  byId('summary-edit-button').disabled = VOID_TAGS.has(element.tagName);
+  root.hidden = false;
+}
+
+function edgeValue(computed, property) {
+  const value = computed.getPropertyValue(property).trim();
+  const number = Number.parseFloat(value);
+  return Number.isFinite(number) ? `${Math.round(number)}` : value || '0';
+}
+
+function boxModelDiagram(element, computed) {
+  const rect = element.getBoundingClientRect();
+  const section = document.createElement('section');
+  section.className = 'box-model-section';
+  const edges = (name) => ({
+    top: edgeValue(computed, `${name}-top${name === 'border' ? '-width' : ''}`),
+    right: edgeValue(computed, `${name}-right${name === 'border' ? '-width' : ''}`),
+    bottom: edgeValue(computed, `${name}-bottom${name === 'border' ? '-width' : ''}`),
+    left: edgeValue(computed, `${name}-left${name === 'border' ? '-width' : ''}`),
+  });
+  const margin = edges('margin');
+  const border = edges('border');
+  const padding = edges('padding');
+  const layer = (name, values, inner = '') => `<div class="box-layer ${name}-layer"><span class="box-caption">${name}</span><i class="edge top">${escapeText(values.top)}</i><i class="edge right">${escapeText(values.right)}</i><i class="edge bottom">${escapeText(values.bottom)}</i><i class="edge left">${escapeText(values.left)}</i>${inner}</div>`;
+  const numeric = (property) => Number.parseFloat(computed.getPropertyValue(property)) || 0;
+  const contentWidth = Math.max(0, rect.width - numeric('padding-left') - numeric('padding-right') - numeric('border-left-width') - numeric('border-right-width'));
+  const contentHeight = Math.max(0, rect.height - numeric('padding-top') - numeric('padding-bottom') - numeric('border-top-width') - numeric('border-bottom-width'));
+  const content = `<div class="content-layer"><strong>${Math.round(contentWidth)} × ${Math.round(contentHeight)}</strong><small>content</small></div>`;
+  section.innerHTML = `<header><h3>盒模型</h3><small>单位 px</small></header>${layer('margin', margin, layer('border', border, layer('padding', padding, content)))}`;
+  return section;
 }
 
 function group(title, rows) {
@@ -682,8 +1090,15 @@ function styleControl(element, label, property, value, options) {
 function renderInspectors() {
   const element = model.selected;
   const targets = ['style-inspector', 'attribute-inspector', 'behavior-inspector', 'markup-inspector'].map(byId);
+  renderSelectionSummary(element);
   if (!element) {
-    targets.forEach((target) => { target.innerHTML = '<p class="inspector-empty">在画布或结构树中选择一个元素</p>'; });
+    const emptyStates = [
+      ['sliders', '选择一个元素', '在画布或结构树中选择元素后，可以调整字体、布局、间距和外观。'],
+      ['tag', '暂无元素属性', '选择元素后，这里会显示标签、类名和 HTML 属性。'],
+      ['bolt', '暂无交互设置', '选择元素后，可以为它配置点击、悬停和表单动作。'],
+      ['braces', '暂无 HTML 内容', '选择元素后，可以精确编辑它的内部或外部 HTML。'],
+    ];
+    targets.forEach((target, index) => { target.innerHTML = emptyStateMarkup(...emptyStates[index]); });
     return;
   }
   renderStyleInspector(element);
@@ -696,7 +1111,8 @@ function renderStyleInspector(element) {
   const root = byId('style-inspector');
   const computed = element.ownerDocument.defaultView.getComputedStyle(element);
   root.replaceChildren(
-    group('Typography', [
+    boxModelDiagram(element, computed),
+    group('字体', [
       styleControl(element, '字体', 'font-family', element.style.fontFamily || computed.fontFamily, { values: ['', 'system-ui', 'Arial, sans-serif', 'Georgia, serif', 'ui-monospace, monospace'] }),
       styleControl(element, '字号', 'font-size', element.style.fontSize || computed.fontSize),
       styleControl(element, '字重', 'font-weight', element.style.fontWeight || computed.fontWeight, { values: ['', '300', '400', '500', '600', '700', '800', '900'] }),
@@ -704,7 +1120,7 @@ function renderStyleInspector(element) {
       styleControl(element, '对齐', 'text-align', element.style.textAlign || computed.textAlign, { values: ['', 'left', 'center', 'right', 'justify'] }),
       styleControl(element, '颜色', 'color', rgbToHex(computed.color), { type: 'color' }),
     ]),
-    group('Layout', [
+    group('布局', [
       styleControl(element, 'Display', 'display', element.style.display || computed.display, { values: ['', 'block', 'inline', 'inline-block', 'flex', 'grid', 'none'] }),
       styleControl(element, 'Position', 'position', element.style.position || computed.position, { values: ['', 'static', 'relative', 'absolute', 'fixed', 'sticky'] }),
       styleControl(element, '宽度', 'width', element.style.width || ''),
@@ -715,11 +1131,11 @@ function renderStyleInspector(element) {
       styleControl(element, '分布', 'justify-content', element.style.justifyContent || '', { values: ['', 'flex-start', 'center', 'flex-end', 'space-between', 'space-around'] }),
       styleControl(element, '对齐', 'align-items', element.style.alignItems || '', { values: ['', 'stretch', 'flex-start', 'center', 'flex-end'] }),
     ]),
-    group('Spacing', [
+    group('间距', [
       styleControl(element, 'Margin', 'margin', element.style.margin || ''),
       styleControl(element, 'Padding', 'padding', element.style.padding || ''),
     ]),
-    group('Surface', [
+    group('外观', [
       styleControl(element, '背景色', 'background-color', rgbToHex(computed.backgroundColor), { type: 'color' }),
       styleControl(element, '圆角', 'border-radius', element.style.borderRadius || computed.borderRadius),
       styleControl(element, '边框', 'border', element.style.border || ''),
@@ -741,11 +1157,11 @@ function rgbToHex(value) {
 function renderAttributeInspector(element) {
   const root = byId('attribute-inspector');
   root.replaceChildren();
-  const basics = group('Element', [
+  const basics = group('元素', [
     control('标签', element.tagName.toLowerCase(), (tag) => changeTag(element, tag)),
     control('ID', element.id, (value) => { element.id = value; model.checkpoint('修改 ID'); renderTree(); }),
   ]);
-  const classes = group('Classes', []);
+  const classes = group('类名', []);
   const chipList = document.createElement('div');
   chipList.className = 'chip-list';
   Array.from(element.classList).forEach((name) => {
@@ -762,7 +1178,7 @@ function renderAttributeInspector(element) {
     renderTree();
   }));
 
-  const attributes = group('Attributes', []);
+  const attributes = group('属性', []);
   Array.from(element.attributes).filter((attribute) => !['class', 'id', 'style', 'contenteditable', 'data-hd-editing'].includes(attribute.name)).forEach((attribute) => {
     const row = document.createElement('div');
     row.className = 'attribute-row';
@@ -815,7 +1231,7 @@ function changeTag(element, tag) {
 function renderBehaviorInspector(element) {
   const root = byId('behavior-inspector');
   root.replaceChildren();
-  const section = group('Event action', []);
+  const section = group('事件动作', []);
   const eventRow = control('事件', 'onclick', () => {}, { values: ['onclick', 'ondblclick', 'onmouseenter', 'onmouseleave', 'oninput', 'onchange', 'onsubmit', 'onfocus', 'onblur'] });
   const actionRow = control('动作', 'none', () => {}, { values: ['none', 'link', 'alert', 'toggle', 'toggle-class', 'custom'] });
   const valueRow = control('参数', '', () => {});
@@ -886,6 +1302,10 @@ function renderMarkupInspector(element) {
     model.select(replacement);
     model.checkpoint('编辑 outer HTML');
     renderTree();
+    renderInspectors();
+    canvas.updateOverlay();
+    setStatus('Outer HTML 已应用');
+    toast('元素 HTML 已更新', 'success');
   };
   outer.append(outerArea, outerActions);
   const inner = group('Inner HTML', []);
@@ -894,7 +1314,15 @@ function renderMarkupInspector(element) {
   const innerActions = document.createElement('div');
   innerActions.className = 'control-actions';
   innerActions.innerHTML = '<button type="button">应用 inner HTML</button>';
-  pick('button', innerActions).onclick = () => { element.innerHTML = innerArea.value; model.checkpoint('编辑 inner HTML'); renderTree(); };
+  pick('button', innerActions).onclick = () => {
+    element.innerHTML = innerArea.value;
+    model.checkpoint('编辑 inner HTML');
+    renderTree();
+    renderInspectors();
+    canvas.updateOverlay();
+    setStatus('Inner HTML 已应用');
+    toast('元素内容已更新', 'success');
+  };
   inner.append(innerArea, innerActions);
   root.append(outer, inner);
 }
@@ -1020,8 +1448,22 @@ class AiController {
     this.loadSettings();
   }
 
-  open() { this.drawer.hidden = false; this.updateTarget(); byId('ai-input').focus(); }
-  close() { this.drawer.hidden = true; }
+  open() {
+    this.drawer.hidden = false;
+    byId('studio').classList.add('ai-open');
+    byId('ai-button').classList.add('active');
+    this.updateTarget();
+    requestAnimationFrame(() => { canvas.updateOverlay(); updateCanvasInfo(); });
+    byId('ai-input').focus();
+  }
+
+  close() {
+    this.drawer.hidden = true;
+    byId('studio').classList.remove('ai-open');
+    byId('ai-button').classList.remove('active');
+    requestAnimationFrame(() => { canvas.updateOverlay(); updateCanvasInfo(); });
+    byId('ai-button').focus();
+  }
 
   append(text, role = 'assistant') {
     const message = document.createElement('div');
@@ -1203,14 +1645,18 @@ function renderSnippets() {
   const root = byId('snippet-list');
   const snippets = readSnippets();
   root.replaceChildren();
-  if (!snippets.length) root.innerHTML = '<p class="empty-note">保存常用元素后，会在这里出现。</p>';
+  if (!snippets.length) root.innerHTML = emptyStateMarkup('bookmark', '建立你的组件片段', '选择画布元素并保存，以便在其他位置快速复用。');
   snippets.forEach((snippet) => {
     const row = document.createElement('div');
     row.className = 'snippet-item';
     row.draggable = true;
     row.innerHTML = `<span>${escapeText(snippet.name)}</span><button type="button">×</button>`;
     row.ondragstart = (event) => event.dataTransfer.setData('application/x-html-designer-snippet', snippet.html);
-    row.ondblclick = () => canvas.insertNode(canvas.createNode(snippet.html), model.selected || model.doc?.body, canvas.canContain(model.selected) ? 'inside' : 'after');
+    row.ondblclick = () => {
+      const target = model.selected || model.doc?.body;
+      const node = canvas.createNode(snippet.html);
+      canvas.insertNode(node, target, !model.selected || canvas.canContain(target, node) ? 'inside' : 'after');
+    };
     pick('button', row).onclick = (event) => {
       event.stopPropagation();
       localStorage.setItem(STORAGE.snippets, JSON.stringify(snippets.filter((item) => item.id !== snippet.id)));
@@ -1237,6 +1683,10 @@ function updateDocumentState() {
   byId('document-status').classList.toggle('dirty', model.dirty);
   byId('undo-button').disabled = model.mode !== 'visual' || model.cursor <= 0;
   byId('redo-button').disabled = model.mode !== 'visual' || model.cursor >= model.history.length - 1;
+  ['duplicate-button', 'delete-button', 'parent-button', 'move-up-button', 'move-down-button'].forEach((id) => {
+    const button = byId(id);
+    if (button) button.disabled = model.mode !== 'visual' || !model.selected;
+  });
 }
 
 function showStudio() {
@@ -1256,6 +1706,7 @@ async function setMode(mode) {
     model.sourceText = model.serializeDocument();
     model.sourceBaseline = model.sourceText;
     byId('source-editor').value = model.sourceText;
+    updateSourceStats();
     model.mode = 'source';
     byId('canvas-shell').hidden = true;
     byId('source-shell').hidden = false;
@@ -1295,6 +1746,133 @@ function externalPreview() {
   const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
   window.open(url, '_blank', 'noopener');
   window.setTimeout(() => URL.revokeObjectURL(url), 15000);
+}
+
+let canvasZoom = 1;
+
+function updateCanvasInfo() {
+  const shell = byId('canvas-shell');
+  const iframe = byId('design-canvas');
+  if (!shell || !iframe) return;
+  const device = shell.dataset.device || 'desktop';
+  const labels = { desktop: '桌面', tablet: '平板', mobile: '手机' };
+  const icon = pick('use', byId('canvas-info'));
+  if (icon) icon.setAttribute('href', `#i-${device === 'desktop' ? 'monitor' : device}`);
+  byId('canvas-device-label').textContent = labels[device];
+  byId('canvas-size-label').textContent = `${Math.round(iframe.clientWidth)} × ${Math.round(iframe.clientHeight)}`;
+}
+
+function setCanvasZoom(value, announce = true) {
+  canvasZoom = Math.min(1.5, Math.max(.5, Math.round(Number(value) * 10) / 10));
+  document.documentElement.style.setProperty('--canvas-scale', String(canvasZoom));
+  byId('zoom-value').textContent = `${Math.round(canvasZoom * 100)}%`;
+  if (announce) setStatus(`画布缩放 ${Math.round(canvasZoom * 100)}%`);
+  window.setTimeout(() => { canvas.updateOverlay(); updateCanvasInfo(); }, 190);
+}
+
+function fitCanvas() {
+  const device = byId('canvas-shell').dataset.device;
+  const naturalWidth = device === 'mobile' ? 390 : device === 'tablet' ? 820 : byId('workbench').clientWidth;
+  const available = Math.max(280, byId('workbench').clientWidth - 34);
+  setCanvasZoom(device === 'desktop' ? 1 : Math.min(1, available / naturalWidth));
+}
+
+function toggleRail(side) {
+  const studio = byId('studio');
+  const className = `${side}-collapsed`;
+  studio.classList.toggle(className);
+  const collapsed = studio.classList.contains(className);
+  byId(`${side}-rail-button`)?.classList.toggle('active', !collapsed);
+  setStatus(`${side === 'left' ? '组件面板' : '检查器'}已${collapsed ? '隐藏' : '显示'}`);
+  window.setTimeout(() => { canvas.updateOverlay(); updateCanvasInfo(); }, 210);
+}
+
+function openInsertPalette() {
+  if (!model.doc) {
+    toast('请先打开或新建一个文档', 'error');
+    return;
+  }
+  const root = byId('modal-root');
+  root.innerHTML = `<section class="modal-card command-card insert-card" role="dialog" aria-modal="true" aria-label="快速插入组件"><header class="insert-head"><span>${iconMarkup('boxes')}<strong>快速插入</strong></span><small>插入到当前选择附近</small></header><label class="command-search">${iconMarkup('search')}<input type="search" placeholder="搜索标题、卡片、双栏…" autocomplete="off"><kbd>Esc</kbd></label><div class="insert-list"></div></section>`;
+  const input = pick('input', root);
+  const list = pick('.insert-list', root);
+  let filtered = BLOCKS.map((block, index) => ({ block, index }));
+  let activeIndex = 0;
+  const execute = (item) => {
+    if (!item) return;
+    modal.close();
+    insertBlock(item.index);
+  };
+  const render = () => {
+    const query = input.value.trim().toLowerCase();
+    filtered = BLOCKS.map((block, index) => ({ block, index })).filter(({ block }) => `${block[0]} ${block[1]} ${block[3]}`.toLowerCase().includes(query));
+    activeIndex = Math.min(activeIndex, Math.max(0, filtered.length - 1));
+    list.innerHTML = filtered.length ? filtered.map(({ block, index }, position) => `<button class="insert-item${position === activeIndex ? ' active' : ''}" type="button" data-insert-index="${index}"><span class="block-symbol">${escapeText(block[2])}</span><span><strong>${escapeText(block[1])}</strong><small>${escapeText(block[0])} · ${escapeText(block[3].match(/^\s*<([a-z][a-z0-9-]*)/i)?.[1] || 'html')}</small></span><span class="insert-plus">+</span></button>`).join('') : emptyStateMarkup('search', '没有找到组件', '换一个关键词继续搜索。');
+    pickAll('[data-insert-index]', list).forEach((button) => { button.onclick = () => execute(filtered.find((item) => item.index === Number(button.dataset.insertIndex))); });
+  };
+  input.oninput = render;
+  input.onkeydown = (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); modal.close(); }
+    if (event.key === 'ArrowDown') { event.preventDefault(); activeIndex = (activeIndex + 1) % Math.max(1, filtered.length); render(); }
+    if (event.key === 'ArrowUp') { event.preventDefault(); activeIndex = (activeIndex - 1 + Math.max(1, filtered.length)) % Math.max(1, filtered.length); render(); }
+    if (event.key === 'Enter') { event.preventDefault(); execute(filtered[activeIndex]); }
+  };
+  root.onclick = (event) => { if (event.target === root) modal.close(); };
+  render();
+  input.focus();
+}
+
+function openCommandPalette() {
+  if (!byId('studio').hidden && pick('.command-card', byId('modal-root'))) {
+    modal.close();
+    return;
+  }
+  const commands = [
+    ['打开本地文件', 'folder-open', '⌘O', () => files.open()],
+    ['导入 HTML', 'upload', '', () => files.picker.click()],
+    ['新建设计', 'file-plus', '', () => files.newDocument()],
+    ['保存文档', 'save', '⌘S', () => files.save()],
+    ['快速插入组件', 'boxes', 'I', openInsertPalette],
+    ['切换到画布', 'layout', '', () => setMode('visual')],
+    ['切换到源码', 'code', '', () => setMode('source')],
+    ['撤销', 'undo', '⌘Z', () => model.travel(-1)],
+    ['重做', 'redo', '⇧⌘Z', () => model.travel(1)],
+    ['沉浸预览', 'eye', 'P', () => togglePreview()],
+    ['在新标签页预览', 'external', '', externalPreview],
+    ['打开 AI Design', 'sparkles', '', () => ai.open()],
+    ['显示 / 隐藏组件面板', 'panel-left', '', () => toggleRail('left')],
+    ['显示 / 隐藏检查器', 'panel-right', '', () => toggleRail('right')],
+    ['切换主题', 'theme', '', toggleTheme],
+    ['查看快捷键', 'keyboard', '?', () => modal.shortcuts()],
+  ];
+  const root = byId('modal-root');
+  root.innerHTML = `<section class="modal-card command-card" role="dialog" aria-modal="true" aria-label="命令面板"><label class="command-search">${iconMarkup('search')}<input type="search" placeholder="搜索操作或输入命令…" autocomplete="off"><kbd>Esc</kbd></label><div class="command-list"></div></section>`;
+  const input = pick('input', root);
+  const list = pick('.command-list', root);
+  let filtered = commands;
+  let activeIndex = 0;
+  const execute = (command) => {
+    if (!command) return;
+    modal.close();
+    window.setTimeout(() => command[3](), 0);
+  };
+  const render = () => {
+    const query = input.value.trim().toLowerCase();
+    filtered = commands.filter((item) => item[0].toLowerCase().includes(query));
+    activeIndex = Math.min(activeIndex, Math.max(0, filtered.length - 1));
+    list.innerHTML = filtered.length ? filtered.map((item, index) => `<button class="command-item${index === activeIndex ? ' active' : ''}" type="button" data-command-index="${index}">${iconMarkup(item[1])}<span>${escapeText(item[0])}</span>${item[2] ? `<kbd>${escapeText(item[2])}</kbd>` : ''}</button>`).join('') : '<p class="command-empty">没有匹配的操作</p>';
+    pickAll('[data-command-index]', list).forEach((button) => { button.onclick = () => execute(filtered[Number(button.dataset.commandIndex)]); });
+  };
+  input.oninput = render;
+  input.onkeydown = (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); modal.close(); }
+    if (event.key === 'ArrowDown') { event.preventDefault(); activeIndex = (activeIndex + 1) % Math.max(1, filtered.length); render(); }
+    if (event.key === 'ArrowUp') { event.preventDefault(); activeIndex = (activeIndex - 1 + Math.max(1, filtered.length)) % Math.max(1, filtered.length); render(); }
+    if (event.key === 'Enter') { event.preventDefault(); execute(filtered[activeIndex]); }
+  };
+  root.onclick = (event) => { if (event.target === root) modal.close(); };
+  render();
+  input.focus();
 }
 
 function bindTabs() {
@@ -1339,6 +1917,10 @@ function bindActions() {
   byId('duplicate-button').onclick = () => canvas.runCommand('duplicate');
   byId('delete-button').onclick = () => canvas.runCommand('remove');
   byId('parent-button').onclick = () => { const parent = model.selected?.parentElement; if (parent && parent !== model.doc.documentElement) model.select(parent); };
+  byId('move-up-button').onclick = () => canvas.runCommand('before');
+  byId('move-down-button').onclick = () => canvas.runCommand('after');
+  byId('left-rail-button').onclick = () => toggleRail('left');
+  byId('right-rail-button').onclick = () => toggleRail('right');
   byId('preview-button').onclick = () => togglePreview();
   byId('external-preview-button').onclick = externalPreview;
   byId('leave-preview').onclick = exitPreview;
@@ -1352,28 +1934,57 @@ function bindActions() {
   byId('review-cancel').onclick = () => { ai.pendingReview = null; byId('review-compose').hidden = true; };
   byId('review-send').onclick = () => ai.sendReviews();
   byId('block-search').oninput = (event) => renderBlocks(event.target.value);
+  byId('quick-insert-button').onclick = openInsertPalette;
+  byId('hud-insert-button').onclick = openInsertPalette;
   byId('save-snippet-button').onclick = saveSnippet;
+  byId('shortcut-button').onclick = () => modal.shortcuts();
+  byId('zoom-out-button').onclick = () => setCanvasZoom(canvasZoom - .1);
+  byId('zoom-in-button').onclick = () => setCanvasZoom(canvasZoom + .1);
+  byId('zoom-value').onclick = () => setCanvasZoom(1);
+  byId('zoom-fit-button').onclick = fitCanvas;
+  byId('copy-html-button').onclick = () => { if (model.selected) copyText(model.selected.outerHTML, '已复制元素 HTML'); };
+  byId('copy-selector-button').onclick = () => { if (model.selected) copyText(cssSelectorPath(), '已复制 CSS 选择器'); };
+  byId('summary-edit-button').onclick = () => canvas.runCommand('edit');
+  byId('summary-copy-button').onclick = () => { if (model.selected) copyText(model.selected.outerHTML, '已复制元素 HTML'); };
+  byId('summary-duplicate-button').onclick = () => canvas.runCommand('duplicate');
   pickAll('#mode-switch button').forEach((button) => { button.onclick = () => setMode(button.dataset.mode); });
   pickAll('.device-button').forEach((button) => {
     button.onclick = () => {
       pickAll('.device-button').forEach((item) => item.classList.toggle('active', item === button));
       byId('canvas-shell').dataset.device = button.dataset.device;
-      window.setTimeout(() => canvas.updateOverlay(), 190);
+      setStatus(`已切换为${button.dataset.device === 'desktop' ? '桌面' : button.dataset.device === 'tablet' ? '平板' : '手机'}画布`);
+      window.setTimeout(() => { canvas.updateOverlay(); updateCanvasInfo(); }, 190);
     };
   });
-  byId('source-editor').oninput = () => { model.sourceText = byId('source-editor').value; model.setDirty(true); model.scheduleAutosave(); };
+  byId('source-editor').oninput = () => { model.sourceText = byId('source-editor').value; model.setDirty(true); model.scheduleAutosave(); updateSourceStats(); };
 }
 
 function bindKeyboard() {
   document.addEventListener('keydown', (event) => {
     const command = event.metaKey || event.ctrlKey;
     const field = ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName) || event.target.isContentEditable;
+    if (event.key === 'Escape' && byId('modal-root').childElementCount && !pick('.command-card', byId('modal-root'))) { event.preventDefault(); modal.close(); return; }
+    if (event.key === 'Escape' && !byId('ai-drawer').hidden) { event.preventDefault(); ai.close(); return; }
+    if (command && event.key.toLowerCase() === 'k') { event.preventDefault(); openCommandPalette(); return; }
+    if (command && event.key.toLowerCase() === 'o') { event.preventDefault(); files.open(); return; }
     if (command && event.key.toLowerCase() === 's') { event.preventDefault(); files.save(); return; }
     if (field) return;
     if (command && event.key.toLowerCase() === 'z') { event.preventDefault(); model.travel(event.shiftKey ? 1 : -1); return; }
     if (command && event.key.toLowerCase() === 'd') { event.preventDefault(); canvas.runCommand('duplicate'); return; }
+    if (event.shiftKey && event.key === 'ArrowUp' && model.selected) { event.preventDefault(); canvas.runCommand('parent'); return; }
+    if (event.altKey && event.key === 'ArrowUp' && model.selected) { event.preventDefault(); canvas.runCommand('before'); return; }
+    if (event.altKey && event.key === 'ArrowDown' && model.selected) { event.preventDefault(); canvas.runCommand('after'); return; }
     if ((event.key === 'Delete' || event.key === 'Backspace') && model.selected) { event.preventDefault(); canvas.runCommand('remove'); return; }
     if (event.key === 'Escape') { if (byId('studio').classList.contains('preview-mode')) exitPreview(); else model.select(null); return; }
+    if (event.key === '?') { event.preventDefault(); modal.shortcuts(); return; }
+    if (event.key === '/' && !byId('studio').hidden) {
+      event.preventDefault();
+      if (byId('studio').classList.contains('left-collapsed')) toggleRail('left');
+      pick('[data-tabs="left"] [data-panel="library"]')?.click();
+      byId('block-search').focus();
+      return;
+    }
+    if (event.key.toLowerCase() === 'i' && !byId('studio').hidden) { event.preventDefault(); openInsertPalette(); return; }
     if (event.key.toLowerCase() === 'p') togglePreview();
     if (!byId('welcome').hidden && !event.metaKey && !event.ctrlKey && !event.altKey) {
       const key = event.key.toLowerCase();
@@ -1410,11 +2021,19 @@ model.addEventListener('selection', () => {
   renderTree();
   renderInspectors();
   byId('save-snippet-button').disabled = !model.selected;
+  updateDocumentState();
+  if (model.selected?.isConnected) {
+    const rect = model.selected.getBoundingClientRect();
+    setStatus(`${canvas.describe(model.selected)} · ${Math.round(rect.width)} × ${Math.round(rect.height)}`);
+  } else setStatus('未选择元素');
   ai.updateTarget();
 });
 model.addEventListener('document', () => { renderTree(); renderInspectors(); });
 model.addEventListener('dirty', updateDocumentState);
-model.addEventListener('history', updateDocumentState);
+model.addEventListener('history', () => {
+  updateDocumentState();
+  if (model.history[model.cursor]?.label) setStatus(model.history[model.cursor].label);
+});
 
 function init() {
   applyTheme(localStorage.getItem(STORAGE.theme) || 'dark');
@@ -1426,6 +2045,8 @@ function init() {
   renderTree();
   renderSnippets();
   renderInspectors();
+  updateSourceStats();
+  updateDocumentState();
   const draft = safeJson(localStorage.getItem(STORAGE.draft), null);
   if (draft?.html) {
     byId('action-restore').hidden = false;

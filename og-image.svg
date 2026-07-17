@@ -22,8 +22,11 @@
     <path d="M100 0v630M200 0v630M300 0v630M400 0v630M500 0v630M600 0v630M700 0v630M800 0v630M900 0v630M1000 0v630M1100 0v630"/>
   </g>
   <g transform="translate(84 82)">
-    <rect width="70" height="70" rx="18" fill="#9df59d"/>
-    <path d="M20 24h30M20 35h21M20 46h30" fill="none" stroke="#0b2210" stroke-width="6" stroke-linecap="round"/>
+    <rect width="70" height="70" rx="18" fill="#17251d" stroke="#50745a"/>
+    <g transform="translate(8 5) scale(.42)" fill="none" stroke="#9df59d" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M25 50 23 18l27 20c9-3 19-4 28 0l27-20-2 32c7 12 9 25 5 36-5 14-17 22-35 26M55 112c-18-4-30-12-35-26-4-11-2-24 5-36"/>
+      <path d="m48 61-13 12 13 12M80 61l13 12-13 12M70 55 57 91"/>
+    </g>
   </g>
   <text x="176" y="132" fill="#f4f6fb" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="760">HTML Designer</text>
   <text x="84" y="272" fill="#f4f6fb" font-family="Inter, Arial, sans-serif" font-size="78" font-weight="720" letter-spacing="-4">Design HTML</text>
