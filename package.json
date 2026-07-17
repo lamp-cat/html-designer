@@ -1,0 +1,12 @@
+{
+  "name": "html-designer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HTML Designer with a visual editor and AI Design-assisted local CLI workflow.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">HTML Designer</title>
+  <desc id="desc">A local-first visual HTML workspace</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0d12"/>
+      <stop offset="0.68" stop-color="#121821"/>
+      <stop offset="1" stop-color="#122319"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.72" cy="0.23" r="0.62">
+      <stop offset="0" stop-color="#9df59d" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#9df59d" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#000" flood-opacity="0.36"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g opacity="0.18" stroke="#8c95a6">
+    <path d="M0 90h1200M0 180h1200M0 270h1200M0 360h1200M0 450h1200M0 540h1200"/>
+    <path d="M100 0v630M200 0v630M300 0v630M400 0v630M500 0v630M600 0v630M700 0v630M800 0v630M900 0v630M1000 0v630M1100 0v630"/>
+  </g>
+  <g transform="translate(84 82)">
+    <rect width="70" height="70" rx="18" fill="#9df59d"/>
+    <path d="M20 24h30M20 35h21M20 46h30" fill="none" stroke="#0b2210" stroke-width="6" stroke-linecap="round"/>
+  </g>
+  <text x="176" y="132" fill="#f4f6fb" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="760">HTML Designer</text>
+  <text x="84" y="272" fill="#f4f6fb" font-family="Inter, Arial, sans-serif" font-size="78" font-weight="720" letter-spacing="-4">Design HTML</text>
+  <text x="84" y="354" fill="#8c95a6" font-family="Inter, Arial, sans-serif" font-size="78" font-weight="720" letter-spacing="-4">directly on the page.</text>
+  <text x="88" y="430" fill="#9df59d" font-family="SFMono-Regular, Consolas, monospace" font-size="20" font-weight="700" letter-spacing="3">LOCAL-FIRST · VISUAL · AI-ASSISTED</text>
+  <g transform="translate(754 90)" filter="url(#shadow)">
+    <rect width="360" height="450" rx="24" fill="#171b24" stroke="#3a4558"/>
+    <rect x="22" y="22" width="316" height="42" rx="11" fill="#0b0d12"/>
+    <circle cx="45" cy="43" r="5" fill="#ff7b83"/>
+    <circle cx="63" cy="43" r="5" fill="#f4ca64"/>
+    <circle cx="81" cy="43" r="5" fill="#9df59d"/>
+    <rect x="22" y="82" width="82" height="346" rx="12" fill="#11141b"/>
+    <rect x="118" y="82" width="220" height="346" rx="12" fill="#f3f5f0"/>
+    <rect x="138" y="110" width="76" height="10" rx="5" fill="#26723b"/>
+    <rect x="138" y="138" width="170" height="26" rx="6" fill="#142017"/>
+    <rect x="138" y="176" width="148" height="8" rx="4" fill="#8a958d"/>
+    <rect x="138" y="194" width="126" height="8" rx="4" fill="#8a958d"/>
+    <rect x="138" y="226" width="82" height="30" rx="15" fill="#142017"/>
+    <rect x="138" y="286" width="180" height="112" rx="14" fill="#fff" stroke="#ccd3cd"/>
+    <rect x="36" y="104" width="54" height="34" rx="8" fill="#1e2430"/>
+    <rect x="36" y="148" width="54" height="34" rx="8" fill="#1e2430"/>
+    <rect x="36" y="192" width="54" height="34" rx="8" fill="#1e2430"/>
+    <rect x="133" y="132" width="181" height="78" rx="8" fill="none" stroke="#5f7cff" stroke-width="3"/>
+  </g>
+  <text x="88" y="560" fill="#667085" font-family="SFMono-Regular, Consolas, monospace" font-size="18">github.com/lamp-cat/html-designer</text>
+</svg>

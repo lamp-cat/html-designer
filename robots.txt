@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://lamp-cat.github.io/html-designer/sitemap.xml
