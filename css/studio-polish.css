@@ -264,7 +264,12 @@ body.dragging-block iframe { pointer-events: none; }
 .hover-frame { border-color: color-mix(in srgb, var(--focus) 80%, transparent); background: color-mix(in srgb, var(--focus) 8%, transparent); }
 .selection-label { padding: 4px 7px; background: var(--focus); font-size: 9px; }
 .selection-size { position: absolute; min-width: 64px; padding: 3px 6px; border-radius: 4px; background: rgba(25,30,40,.92); color: #e8edf5; font: 8px var(--mono); text-align: center; white-space: nowrap; }
-.selection-actions { gap: 2px; padding: 4px; border: 1px solid rgba(255,255,255,.1); border-radius: 9px; background: rgba(19,23,31,.96); backdrop-filter: blur(12px); }
+.selection-actions { left: 50%; top: auto; bottom: 16px; max-width: calc(100% - 28px); gap: 2px; padding: 5px; overflow-x: auto; border: 1px solid rgba(255,255,255,.1); border-radius: 10px; background: rgba(19,23,31,.96); box-shadow: 0 18px 50px rgba(0,0,0,.34); backdrop-filter: blur(12px); transform: translateX(-50%); scrollbar-width: none; }
+.selection-actions::-webkit-scrollbar { display: none; }
+.selection-actions.opening { animation: selection-menu-up 180ms cubic-bezier(.2,.8,.2,1) both; }
+.selection-menu-summary { display: grid; min-width: 94px; max-width: 150px; padding: 2px 8px; align-content: center; }
+.selection-menu-summary small { color: #818b9d; font: 7px var(--mono); letter-spacing: .08em; }
+.selection-menu-summary strong { overflow: hidden; color: #eef2f8; font: 9px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .selection-actions button, .selection-grip { display: grid; width: 27px; height: 27px; padding: 0; place-items: center; }
 .selection-context { display: contents; }
 .selection-actions button { border-radius: 6px; }
@@ -309,7 +314,7 @@ body.dragging-block iframe { pointer-events: none; }
 .source-head > div { display: flex; gap: 15px; }
 .source-head .icon { width: 14px; height: 14px; color: #94f0a8; }
 #source-editor { padding: 25px max(24px, 4vw); color: #dfe6f1; caret-color: #9df59d; font-size: 13px; }
-.studio.source-mode .canvas-hud, .studio.source-mode .canvas-info, .studio.preview-mode .canvas-hud, .studio.preview-mode .canvas-info { display: none; }
+.studio.source-mode .canvas-hud, .studio.source-mode .canvas-info, .studio.browse-mode .canvas-hud, .studio.browse-mode .canvas-info, .studio.preview-mode .canvas-hud, .studio.preview-mode .canvas-info { display: none; }
 
 /* Inspector context */
 
@@ -416,6 +421,7 @@ body.dragging-file::after { animation: drop-in 170ms ease both; }
 @keyframes modal-in { from { opacity: 0; transform: translateY(10px) scale(.985); } }
 @keyframes toast-in { from { opacity: 0; transform: translateX(18px); } }
 @keyframes marker-pulse { to { box-shadow: 0 0 0 3px rgba(255,255,255,.85); } }
+@keyframes selection-menu-up { from { opacity: 0; transform: translate(-50%, 18px); } to { opacity: 1; transform: translate(-50%, 0); } }
 @keyframes ai-drawer-in { from { opacity: 0; transform: translateX(-12px); } }
 @keyframes drop-in { from { opacity: 0; transform: scale(.99); } }
 @keyframes status-pulse { 50% { opacity: .45; } }

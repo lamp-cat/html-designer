@@ -31,8 +31,8 @@
   }
   </script>
   <link rel="icon" href="logo-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/studio.css?v=20260717d">
-  <link rel="stylesheet" href="css/studio-polish.css?v=20260717d">
+  <link rel="stylesheet" href="css/studio.css?v=20260717e">
+  <link rel="stylesheet" href="css/studio-polish.css?v=20260717e">
 </head>
 <body>
   <svg class="icon-sprite" aria-hidden="true">
@@ -163,8 +163,9 @@
         <button class="brand-button tooltip" id="home-button" type="button" aria-label="返回首页" data-tooltip="返回首页">
           <span class="brand-mark compact"><svg><use href="#brand-cat"></use></svg></span><span>HTML Designer</span>
         </button>
-        <div class="mode-switch" id="mode-switch" role="tablist" aria-label="编辑模式">
-          <button class="active" type="button" data-mode="visual"><svg class="icon"><use href="#i-layout"></use></svg>画布</button>
+        <div class="mode-switch" id="mode-switch" role="tablist" aria-label="页面模式">
+          <button class="active" type="button" data-mode="visual"><svg class="icon"><use href="#i-edit"></use></svg>编辑</button>
+          <button type="button" data-mode="browse"><svg class="icon"><use href="#i-eye"></use></svg>浏览</button>
           <button type="button" data-mode="source"><svg class="icon"><use href="#i-code"></use></svg>源码</button>
         </div>
         <div class="document-state">
@@ -189,7 +190,7 @@
         <button class="device-button tooltip" type="button" data-device="tablet" aria-label="平板画布" data-tooltip="平板"><svg class="icon"><use href="#i-tablet"></use></svg></button>
         <button class="device-button tooltip" type="button" data-device="mobile" aria-label="手机画布" data-tooltip="手机"><svg class="icon"><use href="#i-mobile"></use></svg></button>
         <span class="tool-divider"></span>
-        <button class="tooltip" type="button" id="preview-button" aria-label="沉浸预览" data-tooltip="沉浸预览 P"><svg class="icon"><use href="#i-eye"></use></svg></button>
+        <button class="tooltip" type="button" id="preview-button" aria-label="沉浸浏览" data-tooltip="沉浸浏览 P"><svg class="icon"><use href="#i-eye"></use></svg></button>
         <button class="tooltip" type="button" id="external-preview-button" aria-label="新标签页预览" data-tooltip="新标签页预览"><svg class="icon"><use href="#i-external"></use></svg></button>
         <button class="accent-tool" type="button" id="ai-button"><svg class="icon"><use href="#i-sparkles"></use></svg>AI Design</button>
         <button class="tooltip" type="button" id="right-rail-button" aria-label="显示或隐藏检查器" data-tooltip="检查器"><svg class="icon"><use href="#i-panel-right"></use></svg></button>
@@ -248,11 +249,14 @@
         </div>
         <div class="canvas-shell" id="canvas-shell" data-device="desktop">
           <iframe id="design-canvas" title="HTML 设计画布" sandbox="allow-same-origin allow-forms"></iframe>
+          <iframe id="browse-canvas" title="HTML 浏览画布" sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-downloads" hidden></iframe>
           <div class="selection-layer" id="selection-layer" hidden>
             <div class="selection-frame" id="selection-frame"></div>
             <div class="selection-label" id="selection-label"></div>
             <div class="selection-size" id="selection-size"></div>
             <div class="selection-actions" id="selection-actions">
+              <span class="selection-menu-summary"><small>正在编辑</small><strong id="selection-menu-title">元素</strong></span>
+              <span class="selection-divider"></span>
               <button class="selection-grip tooltip" type="button" aria-label="拖动元素" data-tooltip="拖动元素"><svg class="icon"><use href="#i-grip"></use></svg></button>
               <button class="tooltip" type="button" data-command="edit" aria-label="编辑文字" data-tooltip="编辑文字"><svg class="icon"><use href="#i-edit"></use></svg></button>
               <button class="tooltip" type="button" data-command="insert" aria-label="在此插入" data-tooltip="在此插入"><svg class="icon"><use href="#i-boxes"></use></svg></button>
@@ -265,6 +269,7 @@
               <button class="tooltip" type="button" data-command="review" aria-label="添加批注" data-tooltip="添加批注"><svg class="icon"><use href="#i-message"></use></svg></button>
               <button class="tooltip" type="button" data-command="duplicate" aria-label="复制" data-tooltip="复制 ⌘D"><svg class="icon"><use href="#i-copy"></use></svg></button>
               <button class="tooltip danger-action" type="button" data-command="remove" aria-label="删除" data-tooltip="删除"><svg class="icon"><use href="#i-trash"></use></svg></button>
+              <button class="tooltip" type="button" data-command="deselect" aria-label="关闭编辑菜单" data-tooltip="关闭">×</button>
             </div>
             <button class="resize-knob resize-x" type="button" data-resize="x" aria-label="调整宽度"></button>
             <button class="resize-knob resize-y" type="button" data-resize="y" aria-label="调整高度"></button>
@@ -358,6 +363,6 @@
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
   <div class="modal-root" id="modal-root"></div>
 
-  <script type="module" src="js/studio-app.js?v=20260717d"></script>
+  <script type="module" src="js/studio-app.js?v=20260717e"></script>
 </body>
 </html>

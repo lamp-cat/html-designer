@@ -15,42 +15,88 @@ const EMPTY_DOCUMENT = `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Untitled design</title>
+  <title>Signal House · 周末创意工作坊</title>
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; background: #f3f5f0; color: #142017; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-    .page { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
-    .hero { display: grid; min-height: 72vh; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; padding: 72px 0; }
-    .eyebrow { color: #26723b; font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-    h1 { margin: 16px 0 22px; font-size: clamp(48px, 8vw, 92px); letter-spacing: -.065em; line-height: .92; }
-    .lead { max-width: 640px; color: #566159; font-size: 19px; line-height: 1.7; }
-    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
-    .button { display: inline-flex; min-height: 46px; padding: 0 20px; align-items: center; justify-content: center; border: 1px solid #142017; border-radius: 999px; color: #142017; font-weight: 750; text-decoration: none; }
-    .button.primary { background: #142017; color: white; }
-    .card { padding: 32px; border: 1px solid rgba(20,32,23,.14); border-radius: 24px; background: white; box-shadow: 0 32px 90px rgba(20,32,23,.12); }
-    .card-mark { display: grid; aspect-ratio: 4 / 3; margin-bottom: 24px; place-items: center; border-radius: 16px; background: #dff6df; color: #26723b; font-size: 64px; }
-    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 0 0 72px; }
-    .feature { min-height: 180px; padding: 24px; border: 1px solid rgba(20,32,23,.12); border-radius: 18px; background: rgba(255,255,255,.68); }
-    @media (max-width: 800px) { .hero { grid-template-columns: 1fr; } .features { grid-template-columns: 1fr; } }
+    :root { color-scheme: light; --paper:#f5f1e8; --ink:#18221d; --muted:#647069; --accent:#f15b3b; --card:#fffdf8; --line:rgba(24,34,29,.14); }
+    :root[data-theme="night"] { color-scheme:dark; --paper:#151b18; --ink:#f7f3e9; --muted:#a7b1aa; --accent:#ff795d; --card:#202824; --line:rgba(255,255,255,.14); }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.6 ui-rounded,"Avenir Next",system-ui,sans-serif; transition:background .2s,color .2s; }
+    button,input { font:inherit; }
+    button,a { -webkit-tap-highlight-color:transparent; }
+    .wrap { width:min(1120px,calc(100% - 36px)); margin:auto; }
+    .site-head { display:flex; min-height:76px; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+    .brand { color:inherit; font-size:18px; font-weight:900; text-decoration:none; }
+    .brand span { color:var(--accent); }
+    nav { display:flex; align-items:center; gap:20px; }
+    nav a { color:var(--muted); font-size:14px; text-decoration:none; }
+    .icon-button { width:38px; height:38px; border:1px solid var(--line); border-radius:50%; background:var(--card); color:var(--ink); cursor:pointer; }
+    .hero { display:grid; min-height:650px; padding:72px 0; grid-template-columns:1.15fr .85fr; align-items:center; gap:70px; }
+    .kicker { color:var(--accent); font-size:12px; font-weight:900; letter-spacing:.16em; text-transform:uppercase; }
+    h1 { max-width:760px; margin:18px 0 24px; font:900 clamp(56px,8vw,112px)/.86 Georgia,serif; letter-spacing:-.06em; }
+    .lead { max-width:620px; color:var(--muted); font-size:19px; }
+    .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:30px; }
+    .button { display:inline-flex; min-height:48px; padding:0 20px; align-items:center; justify-content:center; border:1px solid var(--ink); border-radius:8px; background:transparent; color:var(--ink); font-weight:800; text-decoration:none; cursor:pointer; }
+    .button.primary { border-color:var(--accent); background:var(--accent); color:white; }
+    .poster { position:relative; min-height:430px; padding:34px; overflow:hidden; border-radius:8px; background:#18221d; color:#f9f3e7; box-shadow:18px 18px 0 var(--accent); }
+    .poster::after { content:""; position:absolute; width:220px; height:220px; right:-50px; bottom:-55px; border:35px solid var(--accent); border-radius:50%; }
+    .poster small { color:#a7b3ac; letter-spacing:.12em; }
+    .poster strong { display:block; max-width:300px; margin-top:90px; font:700 52px/.95 Georgia,serif; }
+    .poster time { display:block; margin-top:42px; font-size:18px; }
+    .section { padding:90px 0; border-top:1px solid var(--line); }
+    .section-head { display:flex; margin-bottom:30px; align-items:end; justify-content:space-between; gap:24px; }
+    h2 { margin:0; font:800 clamp(34px,5vw,62px)/1 Georgia,serif; letter-spacing:-.04em; }
+    .section-head p { max-width:460px; margin:0; color:var(--muted); }
+    .schedule { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    .session { min-height:250px; padding:24px; border:1px solid var(--line); border-radius:8px; background:var(--card); }
+    .session time { color:var(--accent); font-size:13px; font-weight:900; }
+    .session h3 { margin:48px 0 8px; font-size:24px; }
+    .session p { color:var(--muted); }
+    details { padding:20px 0; border-bottom:1px solid var(--line); }
+    summary { display:flex; justify-content:space-between; font-weight:800; cursor:pointer; }
+    summary::after { content:"+"; color:var(--accent); }
+    details[open] summary::after { content:"−"; }
+    details p { max-width:720px; color:var(--muted); }
+    .site-foot { display:flex; padding:42px 0; justify-content:space-between; color:var(--muted); font-size:13px; }
+    dialog { width:min(470px,calc(100% - 30px)); padding:0; border:0; border-radius:10px; background:var(--card); color:var(--ink); box-shadow:0 30px 100px rgba(0,0,0,.35); }
+    dialog::backdrop { background:rgba(10,15,12,.64); backdrop-filter:blur(5px); }
+    .dialog-body { padding:28px; }
+    .dialog-head { display:flex; align-items:start; justify-content:space-between; }
+    .dialog-head h2 { font-size:34px; }
+    .dialog-head button { border:0; background:transparent; color:var(--muted); font-size:26px; cursor:pointer; }
+    form { display:grid; margin-top:24px; gap:12px; }
+    label { display:grid; gap:5px; color:var(--muted); font-size:13px; }
+    input { height:45px; padding:0 12px; border:1px solid var(--line); border-radius:6px; background:var(--paper); color:var(--ink); }
+    .notice { position:fixed; left:50%; bottom:24px; padding:11px 16px; border-radius:7px; background:var(--ink); color:var(--paper); transform:translate(-50%,120px); transition:transform .25s; }
+    .notice.show { transform:translate(-50%,0); }
+    @media (max-width:800px) { nav a { display:none; } .hero { min-height:auto; grid-template-columns:1fr; gap:42px; } .poster { min-height:340px; } .schedule { grid-template-columns:1fr; } .section-head,.site-foot { align-items:start; flex-direction:column; } }
   </style>
 </head>
 <body>
-  <main class="page">
-    <section class="hero">
-      <div>
-        <span class="eyebrow">Editable starter</span>
-        <h1>Design directly on the page.</h1>
-        <p class="lead">选择任何元素，修改文字、布局和样式。你也可以从左侧拖入新组件，或切换到源码模式进行精确编辑。</p>
-        <div class="actions"><a class="button primary" href="#features">开始编辑</a><a class="button" href="#">了解更多</a></div>
-      </div>
-      <article class="card"><div class="card-mark">✦</div><h2>HTML Designer</h2><p>这是一个可以自由替换的示例卡片。</p></article>
+  <header class="wrap site-head">
+    <a class="brand" href="#top">Signal<span>House</span></a>
+    <nav aria-label="主导航"><a href="#program">日程</a><a href="#questions">问答</a><button class="icon-button" id="theme-toggle" type="button" aria-label="切换明暗主题">◐</button></nav>
+  </header>
+  <main id="top">
+    <section class="wrap hero">
+      <div><span class="kicker">Hangzhou · Weekend 08</span><h1>把好奇心带到现场。</h1><p class="lead">三场小型工作坊，把写作、声音和城市观察放进同一个周末。每场仅开放 24 个席位。</p><div class="actions"><button class="button primary" type="button" data-open-signup>立即报名</button><a class="button" href="#program">查看日程</a></div></div>
+      <aside class="poster" aria-label="活动海报"><small>SIGNAL HOUSE PRESENTS</small><strong>Ideas need a room.</strong><time datetime="2026-08-08">08—09 AUG 2026</time></aside>
     </section>
-    <section class="features" id="features">
-      <article class="feature"><h3>Visual</h3><p>直接在渲染结果上选择和调整。</p></article>
-      <article class="feature"><h3>Local</h3><p>通过浏览器权限保存回本地文件。</p></article>
-      <article class="feature"><h3>Flexible</h3><p>随时切换到完整 HTML 源码。</p></article>
-    </section>
+    <section class="section" id="program"><div class="wrap"><div class="section-head"><h2>周末日程</h2><p>每场活动独立报名，也可以选择完整通票。所有材料与午间饮品都已包含。</p></div><div class="schedule"><article class="session"><time>周六 10:00</time><h3>城市漫游写作</h3><p>从街区细节出发，完成一篇短篇非虚构作品。</p></article><article class="session"><time>周六 15:00</time><h3>声音采集入门</h3><p>用随身设备记录环境声音，并制作一分钟声音明信片。</p></article><article class="session"><time>周日 13:30</time><h3>小型出版实验</h3><p>把周末素材编辑成一本可以带走的折页刊物。</p></article></div></div></section>
+    <section class="section" id="questions"><div class="wrap"><div class="section-head"><h2>常见问题</h2><p>不需要任何专业经验，只需要带上可以记录的设备。</p></div><details><summary>活动在哪里举行？</summary><p>报名成功后会收到具体地址与交通建议，场地位于杭州拱墅区。</p></details><details><summary>可以临时取消吗？</summary><p>活动开始前 48 小时可以免费取消，也可以将席位转给朋友。</p></details><details><summary>需要携带什么？</summary><p>手机、耳机和一本你喜欢的笔记本即可，其余材料由现场提供。</p></details></div></section>
   </main>
+  <footer class="wrap site-foot"><strong>Signal House</strong><span>Independent workshops since 2022</span></footer>
+  <dialog id="signup-dialog"><div class="dialog-body"><div class="dialog-head"><div><span class="kicker">Reserve a seat</span><h2>报名工作坊</h2></div><button type="button" data-close-dialog aria-label="关闭">×</button></div><form id="signup-form"><label>姓名<input name="name" required autocomplete="name"></label><label>邮箱<input name="email" type="email" required autocomplete="email"></label><label>选择场次<input name="session" value="周末完整通票" required></label><button class="button primary" type="submit">确认报名</button></form></div></dialog>
+  <div class="notice" id="notice" role="status">报名信息已提交，我们会尽快联系你。</div>
+  <script>
+    const root = document.documentElement;
+    const dialog = document.querySelector('#signup-dialog');
+    const notice = document.querySelector('#notice');
+    document.querySelector('#theme-toggle').addEventListener('click', () => { root.dataset.theme = root.dataset.theme === 'night' ? '' : 'night'; });
+    document.querySelector('[data-open-signup]').addEventListener('click', () => dialog.showModal());
+    document.querySelector('[data-close-dialog]').addEventListener('click', () => dialog.close());
+    document.querySelector('#signup-form').addEventListener('submit', (event) => { event.preventDefault(); dialog.close(); notice.classList.add('show'); window.setTimeout(() => notice.classList.remove('show'), 2600); event.currentTarget.reset(); });
+  </script>
 </body>
 </html>`;
 
@@ -176,7 +222,7 @@ class ModalService {
     const rows = [
       ['保存文档', ['⌘', 'S']], ['撤销', ['⌘', 'Z']], ['重做', ['⇧', '⌘', 'Z']],
       ['复制元素', ['⌘', 'D']], ['删除元素', ['⌫']], ['选择父元素', ['⇧', '↑']],
-      ['元素上移', ['⌥', '↑']], ['元素下移', ['⌥', '↓']], ['沉浸预览', ['P']],
+      ['元素上移', ['⌥', '↑']], ['元素下移', ['⌥', '↓']], ['沉浸浏览', ['P']],
       ['命令面板', ['⌘', 'K']], ['取消选择 / 退出', ['Esc']], ['快捷键帮助', ['?']],
       ['组件搜索', ['/']], ['快速插入组件', ['I']],
     ];
@@ -312,6 +358,7 @@ const model = new StudioModel();
 class CanvasController {
   constructor() {
     this.iframe = byId('design-canvas');
+    this.browseFrame = byId('browse-canvas');
     this.shell = byId('canvas-shell');
     this.layer = byId('selection-layer');
     this.frame = byId('selection-frame');
@@ -364,6 +411,48 @@ class CanvasController {
       };
       this.iframe.srcdoc = source;
     });
+  }
+
+  enterBrowse(html = model.serializeDocument()) {
+    this.preview = true;
+    this.layer.hidden = true;
+    this.hover.hidden = true;
+    this.dropMarker.hidden = true;
+    this.shell.classList.add('browsing');
+    this.iframe.hidden = true;
+    this.browseFrame.hidden = false;
+    const fragmentNavigation = `<script>
+    document.addEventListener('click', function (event) {
+      const link = event.target.closest && event.target.closest('a[href^="#"]');
+      if (!link) return;
+      const hash = link.getAttribute('href');
+      const target = hash === '#' ? document.documentElement : document.getElementById(decodeURIComponent(hash.slice(1)));
+      if (!target) return;
+      event.preventDefault();
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, true);
+  <\/script>`;
+    const source = /<base\b/i.test(html)
+      ? html
+      : html.replace(/<head([^>]*)>/i, `<head$1>\n  <base href="${escapeText(document.baseURI)}">\n  ${fragmentNavigation}`);
+    this.browseFrame.src = `data:text/html;charset=utf-8,${encodeURIComponent(source)}`;
+    updateCanvasInfo();
+  }
+
+  exitBrowse() {
+    this.shell.classList.remove('browsing');
+    this.browseFrame.hidden = true;
+    this.browseFrame.src = 'about:blank';
+    this.iframe.hidden = false;
+    this.preview = false;
+    this.updateOverlay();
+    updateCanvasInfo();
+  }
+
+  showSelectionMenu() {
+    this.actions.classList.remove('opening');
+    void this.actions.offsetWidth;
+    this.actions.classList.add('opening');
   }
 
   wireDocument(doc) {
@@ -488,6 +577,7 @@ class CanvasController {
     const top = rect.top;
     Object.assign(this.frame.style, { left: `${left}px`, top: `${top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
     this.label.textContent = this.describe(element);
+    byId('selection-menu-title').textContent = this.describe(element);
     Object.assign(this.label.style, { left: `${left}px`, top: `${Math.max(0, top - 20)}px` });
     const width = Math.round(rect.width);
     const height = Math.round(rect.height);
@@ -497,9 +587,8 @@ class CanvasController {
     Object.assign(this.size.style, { left: `${sizeLeft}px`, top: `${sizeTop}px` });
     const summarySize = byId('summary-size');
     if (summarySize) summarySize.textContent = `${width} × ${height}`;
-    const toolbarTop = top > 42 ? top - 36 : top + rect.height + 7;
-    const toolbarLeft = Math.min(Math.max(2, left), Math.max(2, this.iframe.clientWidth - this.actions.offsetWidth - 4));
-    Object.assign(this.actions.style, { left: `${toolbarLeft}px`, top: `${Math.max(2, toolbarTop)}px` });
+    this.actions.style.removeProperty('left');
+    this.actions.style.removeProperty('top');
     const knobs = {
       x: [left + rect.width - 5, top + rect.height / 2 - 5],
       y: [left + rect.width / 2 - 5, top + rect.height - 5],
@@ -520,6 +609,7 @@ class CanvasController {
 
   runCommand(command) {
     if (command === 'insert') return openInsertPalette();
+    if (command === 'deselect') return model.select(null);
     const element = model.selected;
     if (!element) return;
     if (command === 'edit') return this.editText(element);
@@ -1362,7 +1452,7 @@ class FileController {
     model.fileHandle = handle;
     model.fileMtime = mtime;
     model.sourceText = html;
-    model.mode = 'visual';
+    activateVisualWorkspace();
     await canvas.load(html);
     model.setDirty(false);
     showStudio();
@@ -1377,7 +1467,7 @@ class FileController {
     model.fileHandle = null;
     model.fileMtime = null;
     model.sourceText = EMPTY_DOCUMENT;
-    model.mode = 'visual';
+    activateVisualWorkspace();
     await canvas.load(EMPTY_DOCUMENT);
     model.setDirty(false);
     showStudio();
@@ -1718,7 +1808,7 @@ class AiController {
       if (!finalHtml) throw new Error('没有从 CLI 输出中找到完整 HTML');
       const before = model.serializeDocument();
       model.sourceText = finalHtml;
-      model.mode = 'visual';
+      activateVisualWorkspace();
       await canvas.load(finalHtml, { preserveHistory: true });
       model.history = model.history.slice(0, model.cursor + 1);
       model.history.push({ html: finalHtml, path: null, label: 'AI Design' });
@@ -1854,6 +1944,7 @@ function updateDocumentState() {
     const button = byId(id);
     if (button) button.disabled = model.mode !== 'visual' || !model.selected;
   });
+  ['left-rail-button', 'right-rail-button'].forEach((id) => { byId(id).disabled = model.mode !== 'visual'; });
 }
 
 function showStudio() {
@@ -1867,43 +1958,79 @@ async function showWelcome() {
   byId('welcome').hidden = false;
 }
 
+function applyModeLayout(mode) {
+  const studio = byId('studio');
+  byId('canvas-shell').hidden = mode === 'source';
+  byId('source-shell').hidden = mode !== 'source';
+  studio.classList.toggle('source-mode', mode === 'source');
+  studio.classList.toggle('browse-mode', mode === 'browse');
+  pickAll('#mode-switch button').forEach((button) => {
+    const active = button.dataset.mode === mode;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+}
+
+function activateVisualWorkspace() {
+  const studio = byId('studio');
+  studio.classList.remove('preview-mode');
+  byId('leave-preview').hidden = true;
+  byId('preview-button').classList.remove('active');
+  canvas.exitBrowse();
+  model.mode = 'visual';
+  applyModeLayout('visual');
+}
+
+async function commitSourceChanges() {
+  model.sourceText = byId('source-editor').value;
+  const sourceChanged = model.sourceText !== model.sourceBaseline;
+  model.mode = 'visual';
+  await canvas.load(model.sourceText, { preserveHistory: true });
+  if (sourceChanged) {
+    model.history = model.history.slice(0, model.cursor + 1);
+    model.history.push({ html: model.sourceText, path: null, label: '源码编辑' });
+    model.cursor = model.history.length - 1;
+    model.setDirty(true);
+    model.scheduleAutosave();
+  }
+  renderTree();
+}
+
 async function setMode(mode) {
-  if (!model.doc || mode === model.mode) return;
+  if (!model.doc || !['visual', 'browse', 'source'].includes(mode) || mode === model.mode) return;
+  if (model.mode === 'source') await commitSourceChanges();
+  if (model.mode === 'browse') {
+    canvas.exitBrowse();
+    model.mode = 'visual';
+  }
+
   if (mode === 'source') {
     model.sourceText = model.serializeDocument();
     model.sourceBaseline = model.sourceText;
     byId('source-editor').value = model.sourceText;
     updateSourceStats();
     model.mode = 'source';
-    byId('canvas-shell').hidden = true;
-    byId('source-shell').hidden = false;
-    byId('studio').classList.add('source-mode');
+    setStatus('源码模式 · 切回编辑或浏览时应用修改');
+  } else if (mode === 'browse') {
+    model.mode = 'browse';
+    canvas.enterBrowse(model.serializeDocument());
+    setStatus('浏览模式 · 页面链接、表单和脚本交互已启用');
   } else {
-    model.sourceText = byId('source-editor').value;
-    const sourceChanged = model.sourceText !== model.sourceBaseline;
     model.mode = 'visual';
-    await canvas.load(model.sourceText, { preserveHistory: true });
-    if (sourceChanged) {
-      model.history = model.history.slice(0, model.cursor + 1);
-      model.history.push({ html: model.sourceText, path: null, label: '源码编辑' });
-      model.cursor = model.history.length - 1;
-      model.setDirty(true);
-      model.scheduleAutosave();
-    }
-    byId('canvas-shell').hidden = false;
-    byId('source-shell').hidden = true;
-    byId('studio').classList.remove('source-mode');
-    renderTree();
+    canvas.preview = false;
+    canvas.updateOverlay();
+    setStatus('编辑模式 · 点击页面元素打开编辑菜单');
   }
-  pickAll('#mode-switch button').forEach((button) => button.classList.toggle('active', button.dataset.mode === mode));
+  applyModeLayout(mode);
   updateDocumentState();
 }
 
-function togglePreview(force) {
+async function togglePreview(force) {
   const next = typeof force === 'boolean' ? force : !byId('studio').classList.contains('preview-mode');
+  if (next && model.mode !== 'browse') await setMode('browse');
   byId('studio').classList.toggle('preview-mode', next);
   byId('leave-preview').hidden = !next;
-  canvas.setPreview(next);
+  byId('preview-button').classList.toggle('active', next);
 }
 
 function exitPreview() { togglePreview(false); }
@@ -1919,7 +2046,7 @@ let canvasZoom = 1;
 
 function updateCanvasInfo() {
   const shell = byId('canvas-shell');
-  const iframe = byId('design-canvas');
+  const iframe = shell?.classList.contains('browsing') ? byId('browse-canvas') : byId('design-canvas');
   if (!shell || !iframe) return;
   const device = shell.dataset.device || 'desktop';
   const labels = { desktop: '桌面', tablet: '平板', mobile: '手机' };
@@ -2000,11 +2127,12 @@ function openCommandPalette() {
     ['新建设计', 'file-plus', '', () => files.newDocument()],
     ['保存文档', 'save', '⌘S', () => files.save()],
     ['快速插入组件', 'boxes', 'I', openInsertPalette],
-    ['切换到画布', 'layout', '', () => setMode('visual')],
+    ['切换到编辑', 'edit', '', () => setMode('visual')],
+    ['切换到浏览', 'eye', '', () => setMode('browse')],
     ['切换到源码', 'code', '', () => setMode('source')],
     ['撤销', 'undo', '⌘Z', () => model.travel(-1)],
     ['重做', 'redo', '⇧⌘Z', () => model.travel(1)],
-    ['沉浸预览', 'eye', 'P', () => togglePreview()],
+    ['沉浸浏览', 'eye', 'P', () => togglePreview()],
     ['在新标签页预览', 'external', '', externalPreview],
     ['打开 AI Design', 'sparkles', '', () => ai.open()],
     ['显示 / 隐藏组件面板', 'panel-left', '', () => toggleRail('left')],
@@ -2190,6 +2318,7 @@ function bindFileDrop() {
 
 model.addEventListener('selection', () => {
   renderPath();
+  if (model.selected && model.mode === 'visual') canvas.showSelectionMenu();
   canvas.updateOverlay();
   renderTree();
   renderInspectors();
@@ -2210,6 +2339,7 @@ model.addEventListener('history', () => {
 
 function init() {
   applyTheme(localStorage.getItem(STORAGE.theme) || 'dark');
+  applyModeLayout('visual');
   bindTabs();
   bindActions();
   bindKeyboard();
