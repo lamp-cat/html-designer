@@ -4,15 +4,17 @@ HTML Designer 是一个本地优先的可视化 HTML 工作台。它面向独立
 
 ## 主要能力
 
-- 可视化选择、文字编辑、复制、删除、调整顺序和尺寸。
+- 可视化选择、文字编辑、复制、删除、自由移动、调整顺序和尺寸。
 - 24 个内置组件，覆盖文字、布局、组件、媒体、列表、表单、导航和数据展示。
-- DOM 结构树、组件搜索和可复用片段。
+- 可折叠 DOM 结构树、三段落点拖拽重排、组件搜索和可复用片段。
 - 样式、属性、交互和局部 HTML 检查器。
 - Visual/Source 双模式编辑。
 - File System Access API 直接写回本地文件。
 - 无写入权限时下载导出 HTML。
 - 磁盘版本与编辑器内容并排比较。
-- 桌面、平板和手机画布宽度。
+- 桌面、平板和手机画布宽度，以及 50%–150% 画布缩放和适应窗口。
+- 可收起的组件/检查器面板、选中元素快捷工具条和自定义工具提示。
+- `Ctrl/⌘ + K` 命令面板、快捷键速查、HTML/选择器一键复制。
 - 安全的编辑画布与可运行脚本的外部预览。
 - 本地草稿自动保存和 36 步可视化历史。
 - 通过本机 Codex CLI 或 Claude Code CLI 使用 AI Design。
@@ -61,7 +63,9 @@ HTML_DESIGNER_AGENT_TIMEOUT_MS=180000
 ```text
 index.html              应用入口与完整工作台结构
 css/studio.css          主题、布局、画布与面板样式
+css/studio-polish.css   品牌、图标、动效和增强交互样式
 js/studio-app.js        状态、画布、文件、检查器、组件库和 AI 客户端
+logo-mark.svg           HTML Designer 矢量品牌标志与站点图标
 server.js               静态服务器与本机 CLI 桥接
 HTML_DESIGNER_USER_GUIDE.md
                         中文详细使用手册

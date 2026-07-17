@@ -89,6 +89,25 @@ function escapeText(value) {
   })[char]);
 }
 
+function iconMarkup(name, className = 'icon') {
+  return `<svg class="${escapeText(className)}" aria-hidden="true"><use href="#i-${escapeText(name)}"></use></svg>`;
+}
+
+async function copyText(value, message = '已复制') {
+  try {
+    await navigator.clipboard.writeText(String(value || ''));
+    toast(message, 'success');
+  } catch {
+    toast('复制失败，请检查浏览器权限', 'error');
+  }
+}
+
+function setStatus(message) {
+  const target = byId('status-text');
+  if (!target) return;
+  target.innerHTML = `<i></i>${escapeText(message || '准备就绪')}`;
+}
+
 function safeJson(value, fallback) {
   if (value == null || value === '') return fallback;
   try {
@@ -147,6 +166,18 @@ class ModalService {
       await navigator.clipboard.writeText(newText);
       toast('已复制编辑器内容', 'success');
     };
+  }
+
+  shortcuts() {
+    const rows = [
+      ['保存文档', ['⌘', 'S']], ['撤销', ['⌘', 'Z']], ['重做', ['⇧', '⌘', 'Z']],
+      ['复制元素', ['⌘', 'D']], ['删除元素', ['⌫']], ['选择父元素', ['⇧', '↑']],
+      ['元素上移', ['⌥', '↑']], ['元素下移', ['⌥', '↓']], ['沉浸预览', ['P']],
+      ['命令面板', ['⌘', 'K']], ['取消选择 / 退出', ['Esc']], ['快捷键帮助', ['?']],
+      ['组件搜索', ['/']],
+    ];
+    this.root.innerHTML = `<section class="modal-card shortcuts" role="dialog" aria-modal="true" aria-label="快捷键"><header class="modal-head"><h2>快捷键</h2><button type="button" data-close aria-label="关闭">×</button></header><div class="modal-body"><p class="shortcut-intro">用键盘完成高频操作。Windows 和 Linux 上请使用 Ctrl 代替 ⌘。</p><div class="shortcut-grid">${rows.map(([label, keys]) => `<div class="shortcut-row"><strong>${escapeText(label)}</strong><span>${keys.map((key) => `<kbd>${escapeText(key)}</kbd>`).join('')}</span></div>`).join('')}</div></div><footer class="modal-foot"><button class="primary" type="button" data-close-footer>知道了</button></footer></section>`;
+    pickAll('[data-close], [data-close-footer]', this.root).forEach((button) => { button.onclick = () => this.close(); });
   }
 }
 
@@ -286,6 +317,7 @@ class CanvasController {
     this.dropMarker = byId('drop-marker');
     this.preview = false;
     this.resizeSession = null;
+    this.moveSession = null;
     this.dropTarget = null;
     this.initParentEvents();
   }
@@ -298,8 +330,9 @@ class CanvasController {
     pickAll('[data-resize]', this.layer).forEach((handle) => {
       handle.addEventListener('pointerdown', (event) => this.beginResize(event, handle.dataset.resize));
     });
-    document.addEventListener('pointermove', (event) => this.updateResize(event));
-    document.addEventListener('pointerup', () => this.endResize());
+    pick('.selection-grip', this.actions)?.addEventListener('pointerdown', (event) => this.beginMove(event));
+    document.addEventListener('pointermove', (event) => { this.updateResize(event); this.updateMove(event); });
+    document.addEventListener('pointerup', () => { this.endResize(); this.endMove(); });
     window.addEventListener('resize', () => this.updateOverlay());
     new ResizeObserver(() => this.updateOverlay()).observe(this.shell);
   }
@@ -414,6 +447,8 @@ class CanvasController {
       this.layer.hidden = true;
       return;
     }
+    renderSelectionContext(element);
+    this.layer.hidden = false;
     const rect = element.getBoundingClientRect();
     const left = rect.left;
     const top = rect.top;
@@ -421,7 +456,8 @@ class CanvasController {
     this.label.textContent = this.describe(element);
     Object.assign(this.label.style, { left: `${left}px`, top: `${Math.max(0, top - 20)}px` });
     const toolbarTop = top > 42 ? top - 36 : top + rect.height + 7;
-    Object.assign(this.actions.style, { left: `${Math.max(2, left)}px`, top: `${Math.max(2, toolbarTop)}px` });
+    const toolbarLeft = Math.min(Math.max(2, left), Math.max(2, this.iframe.clientWidth - this.actions.offsetWidth - 4));
+    Object.assign(this.actions.style, { left: `${toolbarLeft}px`, top: `${Math.max(2, toolbarTop)}px` });
     const knobs = {
       x: [left + rect.width - 5, top + rect.height / 2 - 5],
       y: [left + rect.width / 2 - 5, top + rect.height - 5],
@@ -431,7 +467,6 @@ class CanvasController {
       const handle = pick(`[data-resize="${key}"]`, this.layer);
       Object.assign(handle.style, { left: `${x}px`, top: `${y}px` });
     });
-    this.layer.hidden = false;
     renderPath();
   }
 
@@ -446,6 +481,11 @@ class CanvasController {
     if (!element) return;
     if (command === 'edit') return this.editText(element);
     if (command === 'review') return ai.openReview();
+    if (command === 'parent') {
+      const parent = element.parentElement;
+      if (parent && parent !== model.doc.documentElement) model.select(parent);
+      return;
+    }
     if (command === 'duplicate') {
       const copy = element.cloneNode(true);
       element.after(copy);
@@ -466,6 +506,38 @@ class CanvasController {
       element.parentElement.insertBefore(element.nextElementSibling, element);
       model.checkpoint('元素下移');
     }
+    if ((command === 'list-before' || command === 'list-after') && element.tagName === 'LI') {
+      const item = element.cloneNode(false);
+      item.textContent = '新的列表项';
+      if (command === 'list-before') element.before(item); else element.after(item);
+      model.select(item);
+      model.checkpoint('添加列表项');
+    }
+    if ((command === 'row-before' || command === 'row-after') && element.closest('tr')) {
+      const row = element.closest('tr');
+      const newRow = row.cloneNode(true);
+      Array.from(newRow.cells).forEach((cell) => { cell.textContent = '新单元格'; });
+      if (command === 'row-before') row.before(newRow); else row.after(newRow);
+      model.select(newRow.cells[0] || newRow);
+      model.checkpoint('添加表格行');
+    }
+    if ((command === 'col-before' || command === 'col-after') && element.closest('tr')) {
+      const cell = element.closest('th,td');
+      const table = element.closest('table');
+      if (cell && table) {
+        const index = cell.cellIndex + (command === 'col-after' ? 1 : 0);
+        Array.from(table.rows).forEach((row) => {
+          const reference = row.cells[Math.min(index, row.cells.length - 1)];
+          const newCell = model.doc.createElement(row.parentElement?.tagName === 'THEAD' ? 'th' : 'td');
+          if (reference?.getAttribute('style')) newCell.setAttribute('style', reference.getAttribute('style'));
+          newCell.textContent = '新单元格';
+          if (index >= row.cells.length) row.append(newCell); else row.insertBefore(newCell, row.cells[index]);
+        });
+        model.checkpoint('添加表格列');
+      }
+    }
+    renderTree();
+    setStatus(model.history[model.cursor]?.label || '已更新元素');
     this.updateOverlay();
   }
 
@@ -476,6 +548,38 @@ class CanvasController {
     event.currentTarget.setPointerCapture?.(event.pointerId);
     const rect = element.getBoundingClientRect();
     this.resizeSession = { element, axis, x: event.clientX, y: event.clientY, width: rect.width, height: rect.height, ratio: rect.width / Math.max(1, rect.height), changed: false };
+  }
+
+  beginMove(event) {
+    const element = model.selected;
+    if (!element) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    this.moveSession = { element, x: event.clientX, y: event.clientY, transform: element.style.transform || '', changed: false };
+    this.actions.classList.add('moving');
+  }
+
+  updateMove(event) {
+    const session = this.moveSession;
+    if (!session) return;
+    const dx = Math.round((event.clientX - session.x) / canvasZoom);
+    const dy = Math.round((event.clientY - session.y) / canvasZoom);
+    session.element.style.transform = `${session.transform} translate(${dx}px, ${dy}px)`.trim();
+    session.changed = Math.abs(dx) + Math.abs(dy) > 1;
+    model.setDirty(true);
+    this.updateOverlay();
+  }
+
+  endMove() {
+    const session = this.moveSession;
+    if (!session) return;
+    if (!session.changed) session.element.style.transform = session.transform;
+    else {
+      model.checkpoint('自由移动元素');
+      setStatus('已自由移动元素');
+    }
+    this.actions.classList.remove('moving');
+    this.moveSession = null;
   }
 
   updateResize(event) {
@@ -562,6 +666,20 @@ class CanvasController {
 
 const canvas = new CanvasController();
 
+function renderSelectionContext(element) {
+  const root = byId('selection-context');
+  const divider = byId('context-divider');
+  if (!root || !divider) return;
+  const commands = [];
+  if (element?.tagName === 'LI') {
+    commands.push(['list-before', '上方添加列表项', 'up'], ['list-after', '下方添加列表项', 'down']);
+  } else if (element?.closest?.('th,td')) {
+    commands.push(['row-after', '下方添加行', 'down'], ['col-after', '右侧添加列', 'external']);
+  }
+  root.innerHTML = commands.map(([command, label, icon]) => `<button class="tooltip" type="button" data-command="${command}" aria-label="${escapeText(label)}" data-tooltip="${escapeText(label)}">${iconMarkup(icon)}</button>`).join('');
+  divider.hidden = !commands.length;
+}
+
 function renderBlocks(filter = '') {
   const root = byId('block-list');
   const query = filter.trim().toLowerCase();
@@ -594,6 +712,13 @@ function renderBlocks(filter = '') {
   });
 }
 
+const collapsedElements = new WeakSet();
+let treeDragElement = null;
+
+function clearTreeDropState() {
+  pickAll('.tree-row.drag-before, .tree-row.drag-inside, .tree-row.drag-after').forEach((row) => row.classList.remove('drag-before', 'drag-inside', 'drag-after'));
+}
+
 function renderTree() {
   const root = byId('element-tree');
   root.replaceChildren();
@@ -603,21 +728,65 @@ function renderTree() {
   }
   const appendElement = (element, depth) => {
     const row = document.createElement('div');
-    row.className = `tree-row${element === model.selected ? ' selected' : ''}`;
+    const collapsed = collapsedElements.has(element);
+    row.className = `tree-row${element === model.selected ? ' selected' : ''}${collapsed ? ' collapsed' : ''}`;
     row.style.paddingLeft = `${Math.min(14, depth) * 11}px`;
     row.draggable = element !== model.doc.body;
-    const toggle = document.createElement('button');
+    const toggle = document.createElement(element.children.length ? 'button' : 'span');
     toggle.className = 'tree-toggle';
-    toggle.type = 'button';
-    toggle.textContent = element.children.length ? '⌄' : '·';
+    if (element.children.length) toggle.type = 'button';
+    toggle.innerHTML = element.children.length ? iconMarkup('down') : '<span class="tree-dot"></span>';
+    if (element.children.length) toggle.setAttribute('aria-label', collapsed ? '展开' : '折叠');
     const label = document.createElement('span');
     label.className = 'tree-label';
     label.textContent = canvas.describe(element);
     row.append(toggle, label);
+    if (element.children.length) {
+      toggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (collapsedElements.has(element)) collapsedElements.delete(element); else collapsedElements.add(element);
+        renderTree();
+      });
+    }
     row.addEventListener('click', (event) => { if (!event.target.closest('.tree-toggle')) model.select(element); });
-    row.addEventListener('dragstart', (event) => event.dataTransfer.setData('application/x-html-designer-path', JSON.stringify(model.elementPath(element))));
+    row.addEventListener('dragstart', (event) => {
+      treeDragElement = element;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('application/x-html-designer-path', JSON.stringify(model.elementPath(element)));
+      window.setTimeout(() => row.classList.add('dragging'), 0);
+    });
+    row.addEventListener('dragover', (event) => {
+      if (!treeDragElement || treeDragElement === element || treeDragElement.contains(element)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      clearTreeDropState();
+      const rect = row.getBoundingClientRect();
+      const ratio = (event.clientY - rect.top) / Math.max(1, rect.height);
+      const position = ratio < .28 ? 'before' : ratio > .72 || !canvas.canContain(element) ? 'after' : 'inside';
+      row.classList.add(`drag-${position}`);
+      row.dataset.dropPosition = position;
+      event.dataTransfer.dropEffect = 'move';
+    });
+    row.addEventListener('dragleave', (event) => {
+      if (!row.contains(event.relatedTarget)) row.classList.remove('drag-before', 'drag-inside', 'drag-after');
+    });
+    row.addEventListener('drop', (event) => {
+      if (!treeDragElement) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const position = row.dataset.dropPosition || 'after';
+      const moved = canvas.insertNode(treeDragElement, element, position);
+      clearTreeDropState();
+      treeDragElement = null;
+      if (moved) setStatus(`已移动到 ${canvas.describe(element)} ${position === 'inside' ? '内部' : position === 'before' ? '之前' : '之后'}`);
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      clearTreeDropState();
+      treeDragElement = null;
+    });
     root.append(row);
-    Array.from(element.children).filter((child) => !['SCRIPT', 'STYLE'].includes(child.tagName)).forEach((child) => appendElement(child, depth + 1));
+    if (!collapsed) Array.from(element.children).filter((child) => !['SCRIPT', 'STYLE'].includes(child.tagName)).forEach((child) => appendElement(child, depth + 1));
   };
   appendElement(model.doc.body, 0);
 }
@@ -635,6 +804,33 @@ function renderPath() {
     button.onclick = () => model.select(element);
     root.append(button);
   });
+  byId('selection-utilities').hidden = !model.selected;
+}
+
+function cssSelectorPath(element = model.selected) {
+  if (!element) return '';
+  const parts = [];
+  let node = element;
+  while (node && node.nodeType === 1 && node !== model.doc.documentElement) {
+    let part = node.tagName.toLowerCase();
+    if (node.id) {
+      const safeId = window.CSS?.escape ? window.CSS.escape(node.id) : node.id.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+      parts.unshift(`${part}#${safeId}`);
+      break;
+    }
+    const siblings = node.parentElement ? Array.from(node.parentElement.children).filter((item) => item.tagName === node.tagName) : [];
+    if (siblings.length > 1) part += `:nth-of-type(${siblings.indexOf(node) + 1})`;
+    parts.unshift(part);
+    node = node.parentElement;
+  }
+  return parts.join(' > ');
+}
+
+function updateSourceStats() {
+  const source = byId('source-editor')?.value || '';
+  const lines = source ? source.split(/\r?\n/).length : 0;
+  const target = byId('source-stats');
+  if (target) target.textContent = `${lines} 行 · ${source.length.toLocaleString()} 字符`;
 }
 
 function group(title, rows) {
@@ -696,7 +892,7 @@ function renderStyleInspector(element) {
   const root = byId('style-inspector');
   const computed = element.ownerDocument.defaultView.getComputedStyle(element);
   root.replaceChildren(
-    group('Typography', [
+    group('字体', [
       styleControl(element, '字体', 'font-family', element.style.fontFamily || computed.fontFamily, { values: ['', 'system-ui', 'Arial, sans-serif', 'Georgia, serif', 'ui-monospace, monospace'] }),
       styleControl(element, '字号', 'font-size', element.style.fontSize || computed.fontSize),
       styleControl(element, '字重', 'font-weight', element.style.fontWeight || computed.fontWeight, { values: ['', '300', '400', '500', '600', '700', '800', '900'] }),
@@ -704,7 +900,7 @@ function renderStyleInspector(element) {
       styleControl(element, '对齐', 'text-align', element.style.textAlign || computed.textAlign, { values: ['', 'left', 'center', 'right', 'justify'] }),
       styleControl(element, '颜色', 'color', rgbToHex(computed.color), { type: 'color' }),
     ]),
-    group('Layout', [
+    group('布局', [
       styleControl(element, 'Display', 'display', element.style.display || computed.display, { values: ['', 'block', 'inline', 'inline-block', 'flex', 'grid', 'none'] }),
       styleControl(element, 'Position', 'position', element.style.position || computed.position, { values: ['', 'static', 'relative', 'absolute', 'fixed', 'sticky'] }),
       styleControl(element, '宽度', 'width', element.style.width || ''),
@@ -715,11 +911,11 @@ function renderStyleInspector(element) {
       styleControl(element, '分布', 'justify-content', element.style.justifyContent || '', { values: ['', 'flex-start', 'center', 'flex-end', 'space-between', 'space-around'] }),
       styleControl(element, '对齐', 'align-items', element.style.alignItems || '', { values: ['', 'stretch', 'flex-start', 'center', 'flex-end'] }),
     ]),
-    group('Spacing', [
+    group('间距', [
       styleControl(element, 'Margin', 'margin', element.style.margin || ''),
       styleControl(element, 'Padding', 'padding', element.style.padding || ''),
     ]),
-    group('Surface', [
+    group('外观', [
       styleControl(element, '背景色', 'background-color', rgbToHex(computed.backgroundColor), { type: 'color' }),
       styleControl(element, '圆角', 'border-radius', element.style.borderRadius || computed.borderRadius),
       styleControl(element, '边框', 'border', element.style.border || ''),
@@ -741,11 +937,11 @@ function rgbToHex(value) {
 function renderAttributeInspector(element) {
   const root = byId('attribute-inspector');
   root.replaceChildren();
-  const basics = group('Element', [
+  const basics = group('元素', [
     control('标签', element.tagName.toLowerCase(), (tag) => changeTag(element, tag)),
     control('ID', element.id, (value) => { element.id = value; model.checkpoint('修改 ID'); renderTree(); }),
   ]);
-  const classes = group('Classes', []);
+  const classes = group('类名', []);
   const chipList = document.createElement('div');
   chipList.className = 'chip-list';
   Array.from(element.classList).forEach((name) => {
@@ -762,7 +958,7 @@ function renderAttributeInspector(element) {
     renderTree();
   }));
 
-  const attributes = group('Attributes', []);
+  const attributes = group('属性', []);
   Array.from(element.attributes).filter((attribute) => !['class', 'id', 'style', 'contenteditable', 'data-hd-editing'].includes(attribute.name)).forEach((attribute) => {
     const row = document.createElement('div');
     row.className = 'attribute-row';
@@ -815,7 +1011,7 @@ function changeTag(element, tag) {
 function renderBehaviorInspector(element) {
   const root = byId('behavior-inspector');
   root.replaceChildren();
-  const section = group('Event action', []);
+  const section = group('事件动作', []);
   const eventRow = control('事件', 'onclick', () => {}, { values: ['onclick', 'ondblclick', 'onmouseenter', 'onmouseleave', 'oninput', 'onchange', 'onsubmit', 'onfocus', 'onblur'] });
   const actionRow = control('动作', 'none', () => {}, { values: ['none', 'link', 'alert', 'toggle', 'toggle-class', 'custom'] });
   const valueRow = control('参数', '', () => {});
@@ -1237,6 +1433,10 @@ function updateDocumentState() {
   byId('document-status').classList.toggle('dirty', model.dirty);
   byId('undo-button').disabled = model.mode !== 'visual' || model.cursor <= 0;
   byId('redo-button').disabled = model.mode !== 'visual' || model.cursor >= model.history.length - 1;
+  ['duplicate-button', 'delete-button', 'parent-button', 'move-up-button', 'move-down-button'].forEach((id) => {
+    const button = byId(id);
+    if (button) button.disabled = model.mode !== 'visual' || !model.selected;
+  });
 }
 
 function showStudio() {
@@ -1256,6 +1456,7 @@ async function setMode(mode) {
     model.sourceText = model.serializeDocument();
     model.sourceBaseline = model.sourceText;
     byId('source-editor').value = model.sourceText;
+    updateSourceStats();
     model.mode = 'source';
     byId('canvas-shell').hidden = true;
     byId('source-shell').hidden = false;
@@ -1295,6 +1496,85 @@ function externalPreview() {
   const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
   window.open(url, '_blank', 'noopener');
   window.setTimeout(() => URL.revokeObjectURL(url), 15000);
+}
+
+let canvasZoom = 1;
+
+function setCanvasZoom(value, announce = true) {
+  canvasZoom = Math.min(1.5, Math.max(.5, Math.round(Number(value) * 10) / 10));
+  document.documentElement.style.setProperty('--canvas-scale', String(canvasZoom));
+  byId('zoom-value').textContent = `${Math.round(canvasZoom * 100)}%`;
+  if (announce) setStatus(`画布缩放 ${Math.round(canvasZoom * 100)}%`);
+  window.setTimeout(() => canvas.updateOverlay(), 190);
+}
+
+function fitCanvas() {
+  const device = byId('canvas-shell').dataset.device;
+  const naturalWidth = device === 'mobile' ? 390 : device === 'tablet' ? 820 : byId('workbench').clientWidth;
+  const available = Math.max(280, byId('workbench').clientWidth - 34);
+  setCanvasZoom(device === 'desktop' ? 1 : Math.min(1, available / naturalWidth));
+}
+
+function toggleRail(side) {
+  const studio = byId('studio');
+  const className = `${side}-collapsed`;
+  studio.classList.toggle(className);
+  const collapsed = studio.classList.contains(className);
+  byId(`${side}-rail-button`)?.classList.toggle('active', !collapsed);
+  setStatus(`${side === 'left' ? '组件面板' : '检查器'}已${collapsed ? '隐藏' : '显示'}`);
+  window.setTimeout(() => canvas.updateOverlay(), 210);
+}
+
+function openCommandPalette() {
+  if (!byId('studio').hidden && pick('.command-card', byId('modal-root'))) {
+    modal.close();
+    return;
+  }
+  const commands = [
+    ['打开本地文件', 'folder-open', '⌘O', () => files.open()],
+    ['导入 HTML', 'upload', '', () => files.picker.click()],
+    ['新建设计', 'file-plus', '', () => files.newDocument()],
+    ['保存文档', 'save', '⌘S', () => files.save()],
+    ['切换到画布', 'layout', '', () => setMode('visual')],
+    ['切换到源码', 'code', '', () => setMode('source')],
+    ['撤销', 'undo', '⌘Z', () => model.travel(-1)],
+    ['重做', 'redo', '⇧⌘Z', () => model.travel(1)],
+    ['沉浸预览', 'eye', 'P', () => togglePreview()],
+    ['在新标签页预览', 'external', '', externalPreview],
+    ['打开 AI Design', 'sparkles', '', () => ai.open()],
+    ['显示 / 隐藏组件面板', 'panel-left', '', () => toggleRail('left')],
+    ['显示 / 隐藏检查器', 'panel-right', '', () => toggleRail('right')],
+    ['切换主题', 'theme', '', toggleTheme],
+    ['查看快捷键', 'keyboard', '?', () => modal.shortcuts()],
+  ];
+  const root = byId('modal-root');
+  root.innerHTML = `<section class="modal-card command-card" role="dialog" aria-modal="true" aria-label="命令面板"><label class="command-search">${iconMarkup('search')}<input type="search" placeholder="搜索操作或输入命令…" autocomplete="off"><kbd>Esc</kbd></label><div class="command-list"></div></section>`;
+  const input = pick('input', root);
+  const list = pick('.command-list', root);
+  let filtered = commands;
+  let activeIndex = 0;
+  const execute = (command) => {
+    if (!command) return;
+    modal.close();
+    window.setTimeout(() => command[3](), 0);
+  };
+  const render = () => {
+    const query = input.value.trim().toLowerCase();
+    filtered = commands.filter((item) => item[0].toLowerCase().includes(query));
+    activeIndex = Math.min(activeIndex, Math.max(0, filtered.length - 1));
+    list.innerHTML = filtered.length ? filtered.map((item, index) => `<button class="command-item${index === activeIndex ? ' active' : ''}" type="button" data-command-index="${index}">${iconMarkup(item[1])}<span>${escapeText(item[0])}</span>${item[2] ? `<kbd>${escapeText(item[2])}</kbd>` : ''}</button>`).join('') : '<p class="command-empty">没有匹配的操作</p>';
+    pickAll('[data-command-index]', list).forEach((button) => { button.onclick = () => execute(filtered[Number(button.dataset.commandIndex)]); });
+  };
+  input.oninput = render;
+  input.onkeydown = (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); modal.close(); }
+    if (event.key === 'ArrowDown') { event.preventDefault(); activeIndex = (activeIndex + 1) % Math.max(1, filtered.length); render(); }
+    if (event.key === 'ArrowUp') { event.preventDefault(); activeIndex = (activeIndex - 1 + Math.max(1, filtered.length)) % Math.max(1, filtered.length); render(); }
+    if (event.key === 'Enter') { event.preventDefault(); execute(filtered[activeIndex]); }
+  };
+  root.onclick = (event) => { if (event.target === root) modal.close(); };
+  render();
+  input.focus();
 }
 
 function bindTabs() {
@@ -1339,6 +1619,10 @@ function bindActions() {
   byId('duplicate-button').onclick = () => canvas.runCommand('duplicate');
   byId('delete-button').onclick = () => canvas.runCommand('remove');
   byId('parent-button').onclick = () => { const parent = model.selected?.parentElement; if (parent && parent !== model.doc.documentElement) model.select(parent); };
+  byId('move-up-button').onclick = () => canvas.runCommand('before');
+  byId('move-down-button').onclick = () => canvas.runCommand('after');
+  byId('left-rail-button').onclick = () => toggleRail('left');
+  byId('right-rail-button').onclick = () => toggleRail('right');
   byId('preview-button').onclick = () => togglePreview();
   byId('external-preview-button').onclick = externalPreview;
   byId('leave-preview').onclick = exitPreview;
@@ -1353,27 +1637,49 @@ function bindActions() {
   byId('review-send').onclick = () => ai.sendReviews();
   byId('block-search').oninput = (event) => renderBlocks(event.target.value);
   byId('save-snippet-button').onclick = saveSnippet;
+  byId('shortcut-button').onclick = () => modal.shortcuts();
+  byId('zoom-out-button').onclick = () => setCanvasZoom(canvasZoom - .1);
+  byId('zoom-in-button').onclick = () => setCanvasZoom(canvasZoom + .1);
+  byId('zoom-value').onclick = () => setCanvasZoom(1);
+  byId('zoom-fit-button').onclick = fitCanvas;
+  byId('copy-html-button').onclick = () => { if (model.selected) copyText(model.selected.outerHTML, '已复制元素 HTML'); };
+  byId('copy-selector-button').onclick = () => { if (model.selected) copyText(cssSelectorPath(), '已复制 CSS 选择器'); };
   pickAll('#mode-switch button').forEach((button) => { button.onclick = () => setMode(button.dataset.mode); });
   pickAll('.device-button').forEach((button) => {
     button.onclick = () => {
       pickAll('.device-button').forEach((item) => item.classList.toggle('active', item === button));
       byId('canvas-shell').dataset.device = button.dataset.device;
+      setStatus(`已切换为${button.dataset.device === 'desktop' ? '桌面' : button.dataset.device === 'tablet' ? '平板' : '手机'}画布`);
       window.setTimeout(() => canvas.updateOverlay(), 190);
     };
   });
-  byId('source-editor').oninput = () => { model.sourceText = byId('source-editor').value; model.setDirty(true); model.scheduleAutosave(); };
+  byId('source-editor').oninput = () => { model.sourceText = byId('source-editor').value; model.setDirty(true); model.scheduleAutosave(); updateSourceStats(); };
 }
 
 function bindKeyboard() {
   document.addEventListener('keydown', (event) => {
     const command = event.metaKey || event.ctrlKey;
     const field = ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName) || event.target.isContentEditable;
+    if (event.key === 'Escape' && byId('modal-root').childElementCount && !pick('.command-card', byId('modal-root'))) { event.preventDefault(); modal.close(); return; }
+    if (command && event.key.toLowerCase() === 'k') { event.preventDefault(); openCommandPalette(); return; }
+    if (command && event.key.toLowerCase() === 'o') { event.preventDefault(); files.open(); return; }
     if (command && event.key.toLowerCase() === 's') { event.preventDefault(); files.save(); return; }
     if (field) return;
     if (command && event.key.toLowerCase() === 'z') { event.preventDefault(); model.travel(event.shiftKey ? 1 : -1); return; }
     if (command && event.key.toLowerCase() === 'd') { event.preventDefault(); canvas.runCommand('duplicate'); return; }
+    if (event.shiftKey && event.key === 'ArrowUp' && model.selected) { event.preventDefault(); canvas.runCommand('parent'); return; }
+    if (event.altKey && event.key === 'ArrowUp' && model.selected) { event.preventDefault(); canvas.runCommand('before'); return; }
+    if (event.altKey && event.key === 'ArrowDown' && model.selected) { event.preventDefault(); canvas.runCommand('after'); return; }
     if ((event.key === 'Delete' || event.key === 'Backspace') && model.selected) { event.preventDefault(); canvas.runCommand('remove'); return; }
     if (event.key === 'Escape') { if (byId('studio').classList.contains('preview-mode')) exitPreview(); else model.select(null); return; }
+    if (event.key === '?') { event.preventDefault(); modal.shortcuts(); return; }
+    if (event.key === '/' && !byId('studio').hidden) {
+      event.preventDefault();
+      if (byId('studio').classList.contains('left-collapsed')) toggleRail('left');
+      pick('[data-tabs="left"] [data-panel="library"]')?.click();
+      byId('block-search').focus();
+      return;
+    }
     if (event.key.toLowerCase() === 'p') togglePreview();
     if (!byId('welcome').hidden && !event.metaKey && !event.ctrlKey && !event.altKey) {
       const key = event.key.toLowerCase();
@@ -1410,11 +1716,19 @@ model.addEventListener('selection', () => {
   renderTree();
   renderInspectors();
   byId('save-snippet-button').disabled = !model.selected;
+  updateDocumentState();
+  if (model.selected?.isConnected) {
+    const rect = model.selected.getBoundingClientRect();
+    setStatus(`${canvas.describe(model.selected)} · ${Math.round(rect.width)} × ${Math.round(rect.height)}`);
+  } else setStatus('未选择元素');
   ai.updateTarget();
 });
 model.addEventListener('document', () => { renderTree(); renderInspectors(); });
 model.addEventListener('dirty', updateDocumentState);
-model.addEventListener('history', updateDocumentState);
+model.addEventListener('history', () => {
+  updateDocumentState();
+  if (model.history[model.cursor]?.label) setStatus(model.history[model.cursor].label);
+});
 
 function init() {
   applyTheme(localStorage.getItem(STORAGE.theme) || 'dark');
@@ -1426,6 +1740,8 @@ function init() {
   renderTree();
   renderSnippets();
   renderInspectors();
+  updateSourceStats();
+  updateDocumentState();
   const draft = safeJson(localStorage.getItem(STORAGE.draft), null);
   if (draft?.html) {
     byId('action-restore').hidden = false;
