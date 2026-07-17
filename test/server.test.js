@@ -6,9 +6,12 @@ const {
   buildPrompt,
   cliCandidates,
   diagnoseCliError,
+  extractConfiguredClaudeModels,
   extractFinalText,
   extractHtmlDocument,
   normalizeCli,
+  parseClaudeModelHelp,
+  parseCodexModelCatalog,
   serializeCliError,
 } = require('../server');
 
@@ -78,4 +81,34 @@ test('extracts the final text from newline-delimited CLI events', () => {
     JSON.stringify({ final_message: '<html><body>final</body></html>' }),
   ].join('\n');
   assert.equal(extractFinalText(output), '<html><body>final</body></html>');
+});
+
+test('parses the Codex CLI model catalog in CLI priority order', () => {
+  const models = parseCodexModelCatalog(JSON.stringify({ models: [
+    { slug: 'hidden-model', display_name: 'Hidden', visibility: 'hide', supported_in_api: true, priority: 0 },
+    { slug: 'gpt-fast', display_name: 'GPT Fast', description: 'Fast', visibility: 'list', supported_in_api: true, priority: 2 },
+    { slug: 'gpt-deep', display_name: 'GPT Deep', description: 'Deep', visibility: 'list', supported_in_api: true, priority: 1 },
+  ] }));
+  assert.deepEqual(models.map(model => model.id), ['gpt-deep', 'gpt-fast']);
+  assert.equal(models[0].source, 'cli');
+});
+
+test('discovers Claude CLI aliases and configured model overrides', () => {
+  const aliases = parseClaudeModelHelp(`  --model <model>  Model for the current session. Provide an alias (e.g. 'fable', 'opus', or 'sonnet') or a full name (e.g. 'claude-fable-5').\n  --no-chrome`);
+  assert.deepEqual(aliases, ['fable', 'opus', 'sonnet', 'claude-fable-5']);
+
+  const configured = extractConfiguredClaudeModels([{
+    model: 'company/default-model',
+    env: {
+      ANTHROPIC_DEFAULT_OPUS_MODEL: 'company/large-model',
+      ANTHROPIC_DEFAULT_HAIKU_MODEL: 'company/fast-model',
+    },
+  }]);
+  assert.deepEqual(configured, [
+    'company/default-model',
+    'company/large-model',
+    'opus',
+    'company/fast-model',
+    'haiku',
+  ]);
 });

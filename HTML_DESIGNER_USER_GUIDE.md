@@ -507,8 +507,8 @@ AI Design 通过本地 Node 服务调用 Codex CLI 或 Claude Code CLI。
    打开后会暂时收起组件栏和检查器，让画布与 AI 面板并排显示；关闭后恢复原有布局。也可以按 Esc 关闭。
 2. 展开“连接设置”。
 3. Endpoint 通常保持 `/api/ai-design`。
-4. 选择 Codex CLI 或 Claude Code CLI。
-5. 模型名称可以留空。
+4. 选择 Codex CLI 或 Claude Code CLI，模型列表会自动从当前 CLI 刷新。
+5. 从模型下拉框中选择一个可用模型，或保留“使用 CLI 默认模型”。Codex 会读取完整的 CLI 模型目录；Claude Code 会读取 CLI 公布的别名和本机配置，也可以选择“手动输入模型 ID”。
 6. 建议保持“自动切换可用 CLI”开启。当前 CLI 无法启动、未授权、超时或模型网关不兼容时，任务会继续尝试本机另一条 CLI 链路。
 7. 保存设置。
 8. 点击“测试连接”。测试不再只读取版本号，而会发送一次最小真实请求，同时检查 CLI 启动、登录、模型服务和输出链路。
@@ -560,6 +560,7 @@ HTML_DESIGNER_AGENT_MODEL=
 HTML_DESIGNER_AGENT_TIMEOUT_MS=180000
 HTML_DESIGNER_AGENT_PROBE_TIMEOUT_MS=60000
 HTML_DESIGNER_AGENT_OUTPUT_LIMIT=8000000
+HTML_DESIGNER_MODEL_CATALOG_TTL_MS=300000
 ```
 
 ## 18. 自动保存和撤销

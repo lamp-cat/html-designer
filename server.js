@@ -12,6 +12,8 @@ const timeoutMs = Number(process.env.HTML_DESIGNER_AGENT_TIMEOUT_MS || 180000);
 const probeTimeoutMs = Number(process.env.HTML_DESIGNER_AGENT_PROBE_TIMEOUT_MS || 60000);
 const outputLimit = Number(process.env.HTML_DESIGNER_AGENT_OUTPUT_LIMIT || 8_000_000);
 const cliLabels = { codex: 'Codex CLI', claude: 'Claude Code CLI' };
+const modelCatalogTtlMs = Number(process.env.HTML_DESIGNER_MODEL_CATALOG_TTL_MS || 300000);
+const modelCatalogCache = new Map();
 
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
@@ -33,6 +35,10 @@ const server = http.createServer(async (req, res) => {
       await handleCliBridge(req, res);
       return;
     }
+    if (url.pathname === '/api/ai-models') {
+      await handleModelCatalog(req, res, url);
+      return;
+    }
     serveStatic(url.pathname, res);
   } catch (error) {
     if (!res.headersSent) sendJson(res, error.statusCode || 500, serializeCliError(error));
@@ -45,6 +51,24 @@ if (require.main === module) {
     console.log(`HTML Designer running at http://localhost:${port}`);
     console.log(`AI Design local CLI bridge: /api/ai-design -> ${defaultCli}`);
   });
+}
+
+async function handleModelCatalog(req, res, url) {
+  setCorsHeaders(res);
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+  if (req.method !== 'GET') {
+    sendJson(res, 405, { error: 'Method not allowed' });
+    return;
+  }
+
+  const cli = normalizeCli(url.searchParams.get('cli') || defaultCli);
+  const refresh = /^(1|true|yes)$/i.test(url.searchParams.get('refresh') || '');
+  const catalog = await discoverCliModels(cli, { refresh });
+  sendJson(res, 200, catalog);
 }
 
 async function handleCliBridge(req, res) {
@@ -188,6 +212,213 @@ function terminateChild(child) {
     }
   }, 1500);
   forceTimer.unref?.();
+}
+
+function runCommandCapture(command, args, options = {}) {
+  const limitMs = Number(options.timeoutMs || probeTimeoutMs);
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: root,
+      shell: process.platform === 'win32',
+      windowsHide: true,
+      env: process.env,
+    });
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      terminateChild(child);
+      const error = new Error(`${command} timed out after ${limitMs}ms`);
+      error.code = 'CLI_TIMEOUT';
+      reject(error);
+    }, limitMs);
+
+    const collect = (current, chunk) => appendOutput(current, chunk.toString());
+    child.stdout.on('data', chunk => {
+      if (settled) return;
+      try { stdout = collect(stdout, chunk); }
+      catch (error) {
+        settled = true;
+        clearTimeout(timer);
+        terminateChild(child);
+        reject(error);
+      }
+    });
+    child.stderr.on('data', chunk => {
+      if (settled) return;
+      try { stderr = collect(stderr, chunk); }
+      catch (error) {
+        settled = true;
+        clearTimeout(timer);
+        terminateChild(child);
+        reject(error);
+      }
+    });
+    child.on('error', cause => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const error = new Error(`Failed to start ${command}: ${cause.message}`);
+      error.code = cause.code === 'ENOENT' ? 'CLI_NOT_FOUND' : 'CLI_START_FAILED';
+      reject(error);
+    });
+    child.on('close', code => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (code !== 0) {
+        const detail = stripAnsi(stderr.trim() || stdout.trim()).slice(-4000);
+        const error = new Error(`${command} exited with code ${code}${detail ? `: ${detail}` : ''}`);
+        error.code = 'CLI_EXIT';
+        error.exitCode = code;
+        error.detail = detail;
+        reject(error);
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+  });
+}
+
+function validModelId(value) {
+  return typeof value === 'string'
+    && value.length > 0
+    && value.length <= 200
+    && /^[a-z0-9][a-z0-9._:/-]*$/i.test(value);
+}
+
+function parseCodexModelCatalog(output) {
+  const clean = stripAnsi(output);
+  const start = clean.indexOf('{');
+  const end = clean.lastIndexOf('}');
+  if (start < 0 || end <= start) throw new Error('Codex CLI did not return a JSON model catalog');
+  const data = JSON.parse(clean.slice(start, end + 1));
+  const models = Array.isArray(data.models) ? data.models : [];
+  return models
+    .filter(item => validModelId(item?.slug) && item.visibility !== 'hide' && item.supported_in_api !== false)
+    .sort((a, b) => Number(a.priority ?? 9999) - Number(b.priority ?? 9999))
+    .map(item => ({
+      id: item.slug,
+      name: item.display_name || item.slug,
+      description: item.description || '',
+      source: 'cli',
+    }));
+}
+
+function parseClaudeModelHelp(output) {
+  const clean = stripAnsi(output);
+  const section = clean.match(/--model <model>([\s\S]*?)(?=\n\s{2}(?:--|-\w,)|\nCommands:|$)/i)?.[1] || '';
+  const values = [];
+  for (const match of section.matchAll(/['"]([^'"]+)['"]/g)) {
+    if (validModelId(match[1])) values.push(match[1]);
+  }
+  for (const match of section.matchAll(/\bclaude-[a-z0-9][a-z0-9.-]*\b/gi)) values.push(match[0]);
+  return [...new Set(values)];
+}
+
+function extractConfiguredClaudeModels(settingsList = []) {
+  const values = new Set();
+  const modelKeys = [
+    ['ANTHROPIC_MODEL', ''],
+    ['ANTHROPIC_DEFAULT_OPUS_MODEL', 'opus'],
+    ['ANTHROPIC_DEFAULT_SONNET_MODEL', 'sonnet'],
+    ['ANTHROPIC_DEFAULT_HAIKU_MODEL', 'haiku'],
+  ];
+  for (const settings of settingsList) {
+    if (!settings || typeof settings !== 'object') continue;
+    if (validModelId(settings.model)) values.add(settings.model);
+    for (const [key, alias] of modelKeys) {
+      const value = settings.env?.[key] ?? settings[key];
+      if (validModelId(value)) values.add(value);
+      if (alias && validModelId(value)) values.add(alias);
+    }
+  }
+  return [...values];
+}
+
+function readClaudeModelSettings() {
+  const configRoot = process.env.CLAUDE_CONFIG_DIR || path.join(process.env.HOME || '', '.claude');
+  const paths = [...new Set([
+    path.join(configRoot, 'settings.json'),
+    path.join(configRoot, 'settings.local.json'),
+    path.join(root, '.claude', 'settings.json'),
+    path.join(root, '.claude', 'settings.local.json'),
+  ])];
+  const settings = [];
+  for (const filePath of paths) {
+    try { settings.push(JSON.parse(fs.readFileSync(filePath, 'utf8'))); }
+    catch (_) {}
+  }
+  settings.push({ env: Object.fromEntries([
+    'ANTHROPIC_MODEL',
+    'ANTHROPIC_DEFAULT_OPUS_MODEL',
+    'ANTHROPIC_DEFAULT_SONNET_MODEL',
+    'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+  ].map(key => [key, process.env[key]])) });
+  return extractConfiguredClaudeModels(settings);
+}
+
+async function discoverCliModels(cli, options = {}) {
+  const normalized = normalizeCli(cli);
+  const cached = modelCatalogCache.get(normalized);
+  if (!options.refresh && cached && Date.now() - cached.cachedAt < modelCatalogTtlMs) {
+    return { ...cached.value, cached: true };
+  }
+
+  let value;
+  try {
+    if (normalized === 'codex') {
+      const [{ stdout }, version] = await Promise.all([
+        runCommandCapture('codex', ['debug', 'models']),
+        getCliVersion('codex'),
+      ]);
+      const models = parseCodexModelCatalog(stdout);
+      if (!models.length) throw new Error('Codex CLI model catalog is empty');
+      value = {
+        cli: normalized,
+        version,
+        models,
+        source: 'cli-catalog',
+        complete: true,
+        warning: '',
+      };
+    } else {
+      const [{ stdout }, version] = await Promise.all([
+        runCommandCapture('claude', ['--help']),
+        getCliVersion('claude'),
+      ]);
+      const configured = readClaudeModelSettings();
+      const aliases = parseClaudeModelHelp(stdout);
+      const configuredSet = new Set(configured);
+      const ids = [...new Set([...configured, ...aliases])];
+      const models = ids.map(id => ({
+        id,
+        name: configuredSet.has(id) ? `${id}（本机配置）` : `${id}（CLI 别名）`,
+        description: configuredSet.has(id) ? '来自 Claude Code 本机模型配置' : '由当前 Claude Code CLI 公布',
+        source: configuredSet.has(id) ? 'config' : 'cli',
+      }));
+      if (!models.length) throw new Error('Claude Code CLI did not expose any model aliases or configured models');
+      value = {
+        cli: normalized,
+        version,
+        models,
+        source: 'cli-help-and-settings',
+        complete: false,
+        warning: 'Claude Code CLI 未提供完整模型目录命令；已读取当前 CLI 别名和本机配置，也可手动输入模型 ID。',
+      };
+    }
+  } catch (error) {
+    error.cli = normalized;
+    error.statusCode = 502;
+    error.code ||= 'MODEL_CATALOG_FAILED';
+    throw error;
+  }
+
+  const result = { ...value, cached: false, fetched_at: new Date().toISOString() };
+  modelCatalogCache.set(normalized, { cachedAt: Date.now(), value: result });
+  return result;
 }
 
 function normalizeCli(value) {
@@ -604,7 +835,7 @@ function readJson(req) {
 function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 }
 
 function sendJson(res, status, value) {
@@ -634,10 +865,14 @@ module.exports = {
   buildPrompt,
   cliCandidates,
   diagnoseCliError,
+  discoverCliModels,
   executeLocalCli,
+  extractConfiguredClaudeModels,
   extractFinalText,
   extractHtmlDocument,
   normalizeCli,
+  parseClaudeModelHelp,
+  parseCodexModelCatalog,
   runLocalCli,
   runLocalCliWithFallback,
   serializeCliError,

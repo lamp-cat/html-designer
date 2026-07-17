@@ -295,6 +295,15 @@ body.dragging-block iframe { pointer-events: none; }
 .ai-settings .ai-fallback span { display: grid; gap: 2px; }
 .ai-settings .ai-fallback strong { color: var(--ink); font-size: 9px; }
 .ai-settings .ai-fallback small { color: var(--muted); font-size: 8px; }
+.ai-model-picker { display: grid; margin-top: 4px; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.ai-model-picker #ai-model { margin-top: 0; }
+.ai-model-picker #ai-refresh-models { min-width: 46px; min-height: 29px; padding: 0 8px; }
+.ai-model-picker #ai-refresh-models:disabled { opacity: .55; cursor: wait; }
+#ai-model-custom { margin-top: 6px; }
+#ai-model-status { display: block; margin-top: 5px; color: var(--muted); font-size: 8px; line-height: 1.45; }
+#ai-model-status[data-state="ready"] { color: var(--accent-2); }
+#ai-model-status[data-state="warning"] { color: var(--warning); }
+#ai-model-status[data-state="error"] { color: var(--danger); }
 .source-shell { grid-template-rows: 44px minmax(0,1fr); }
 .source-head > span { display: inline-flex; align-items: center; gap: 8px; }
 .source-head > div { display: flex; gap: 15px; }

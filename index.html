@@ -31,8 +31,8 @@
   }
   </script>
   <link rel="icon" href="logo-mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="css/studio.css?v=20260717c">
-  <link rel="stylesheet" href="css/studio-polish.css?v=20260717c">
+  <link rel="stylesheet" href="css/studio.css?v=20260717d">
+  <link rel="stylesheet" href="css/studio-polish.css?v=20260717d">
 </head>
 <body>
   <svg class="icon-sprite" aria-hidden="true">
@@ -348,7 +348,7 @@
       <div class="ai-connection" id="ai-connection" data-state="idle"><span></span><strong>尚未验证</strong><small>测试会发送一次最小真实请求</small></div>
       <label>Endpoint<input id="ai-endpoint" type="text" value="/api/ai-design"></label>
       <label>CLI<select id="ai-cli"><option value="codex">Codex CLI</option><option value="claude">Claude Code CLI</option></select></label>
-      <label>模型（可选）<input id="ai-model" type="text" placeholder="使用 CLI 默认模型"></label>
+      <label class="ai-model-field"><span>模型</span><div class="ai-model-picker"><select id="ai-model" aria-label="模型"><option value="">使用 CLI 默认模型</option><option value="__custom__">手动输入模型 ID…</option></select><button type="button" id="ai-refresh-models" title="刷新当前 CLI 支持的模型">刷新</button></div><input id="ai-model-custom" type="text" placeholder="输入模型 ID" hidden><small id="ai-model-status" aria-live="polite">选择 CLI 后自动读取支持的模型</small></label>
       <label class="ai-fallback"><input id="ai-fallback" type="checkbox" checked><span><strong>自动切换可用 CLI</strong><small>当前 CLI 失败时继续使用本机另一条链路</small></span></label>
       <div><button type="button" id="ai-save-settings">保存设置</button><button type="button" id="ai-test">测试连接</button></div>
     </details>
@@ -358,6 +358,6 @@
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
   <div class="modal-root" id="modal-root"></div>
 
-  <script type="module" src="js/studio-app.js?v=20260717c"></script>
+  <script type="module" src="js/studio-app.js?v=20260717d"></script>
 </body>
 </html>

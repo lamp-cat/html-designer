@@ -43,7 +43,7 @@ AI Design 通过 `server.js` 调用本机 CLI，不在浏览器内保存 API Key
 - Codex CLI
 - Claude Code CLI
 
-连接设置中的“测试连接”会发送一次最小真实请求，验证版本、授权和模型链路。默认开启自动切换：当前 CLI 不可用时，AI Design 会尝试本机另一条 CLI，并在界面中显示具体原因。
+连接设置中的“模型”会随 CLI 自动刷新：Codex 读取 CLI 原生模型目录，Claude Code 读取当前 CLI 公布的模型别名和本机模型配置，并保留手动模型 ID 入口。“测试连接”会发送一次最小真实请求，验证版本、授权和模型链路。默认开启自动切换：当前 CLI 不可用时，AI Design 会尝试本机另一条 CLI，并在界面中显示具体原因。
 
 可选环境变量：
 
@@ -53,6 +53,7 @@ HTML_DESIGNER_AGENT_MODEL=
 HTML_DESIGNER_AGENT_TIMEOUT_MS=180000
 HTML_DESIGNER_AGENT_PROBE_TIMEOUT_MS=60000
 HTML_DESIGNER_AGENT_OUTPUT_LIMIT=8000000
+HTML_DESIGNER_MODEL_CATALOG_TTL_MS=300000
 ```
 
 ## 浏览器支持

@@ -8,6 +8,7 @@ const STORAGE = Object.freeze({
   theme: 'html-designer.v1.theme',
   ai: 'html-designer.v1.ai',
 });
+const CUSTOM_MODEL_VALUE = '__custom__';
 
 const EMPTY_DOCUMENT = `<!doctype html>
 <html lang="zh-CN">
@@ -1445,7 +1446,9 @@ class AiController {
     this.abortController = null;
     this.reviews = [];
     this.pendingReview = null;
+    this.modelRequestId = 0;
     this.loadSettings();
+    this.loadModels({ selected: this.savedModel });
   }
 
   open() {
@@ -1493,11 +1496,98 @@ class AiController {
     return error;
   }
 
+  modelValue() {
+    return byId('ai-model').value === CUSTOM_MODEL_VALUE
+      ? byId('ai-model-custom').value.trim()
+      : byId('ai-model').value;
+  }
+
+  modelEndpoint(cli, refresh = false) {
+    const endpoint = byId('ai-endpoint').value.trim() || '/api/ai-design';
+    const url = new URL(endpoint, window.location.href);
+    url.pathname = /\/ai-design\/?$/.test(url.pathname)
+      ? url.pathname.replace(/\/ai-design\/?$/, '/ai-models')
+      : '/api/ai-models';
+    url.search = '';
+    url.searchParams.set('cli', cli);
+    if (refresh) url.searchParams.set('refresh', '1');
+    return url.toString();
+  }
+
+  renderModelOptions(models = [], selected = '') {
+    const select = byId('ai-model');
+    select.replaceChildren();
+    const addOption = (value, label, description = '') => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      if (description) option.title = description;
+      select.append(option);
+    };
+    addOption('', '使用 CLI 默认模型');
+    models.forEach(item => addOption(item.id, item.name || item.id, item.description || ''));
+    if (selected && !models.some(item => item.id === selected)) addOption(selected, `${selected}（当前选择）`);
+    addOption(CUSTOM_MODEL_VALUE, '手动输入模型 ID…');
+    select.value = selected || '';
+    if (!select.value && selected) select.value = CUSTOM_MODEL_VALUE;
+    this.updateCustomModelInput();
+  }
+
+  updateCustomModelInput() {
+    const custom = byId('ai-model').value === CUSTOM_MODEL_VALUE;
+    const input = byId('ai-model-custom');
+    input.hidden = !custom;
+    if (custom) {
+      byId('ai-model-status').dataset.state = 'warning';
+      byId('ai-model-status').textContent = '手动模型会直接传给当前 CLI，请确认名称可用';
+      input.focus();
+    }
+  }
+
+  async loadModels(options = {}) {
+    const cli = byId('ai-cli').value;
+    const selected = options.selected ?? this.modelValue();
+    const requestId = ++this.modelRequestId;
+    const select = byId('ai-model');
+    const refresh = byId('ai-refresh-models');
+    const status = byId('ai-model-status');
+    select.disabled = true;
+    refresh.disabled = true;
+    refresh.textContent = '读取中';
+    status.dataset.state = 'loading';
+    status.textContent = `正在读取 ${cli === 'claude' ? 'Claude Code CLI' : 'Codex CLI'} 模型…`;
+    try {
+      const response = await fetch(this.modelEndpoint(cli, Boolean(options.refresh)));
+      if (!response.ok) throw await this.responseError(response);
+      const data = await response.json();
+      if (requestId !== this.modelRequestId || cli !== byId('ai-cli').value) return;
+      this.renderModelOptions(data.models || [], selected);
+      status.dataset.state = data.complete === false ? 'warning' : 'ready';
+      status.textContent = data.complete === false
+        ? `已读取 ${data.models?.length || 0} 个模型候选，可手动输入其他模型 ID`
+        : `已从当前 CLI 读取 ${data.models?.length || 0} 个可用模型`;
+      status.title = [data.version, data.warning].filter(Boolean).join(' · ');
+    } catch (error) {
+      if (requestId !== this.modelRequestId) return;
+      this.renderModelOptions([], selected);
+      status.dataset.state = 'error';
+      status.textContent = `模型读取失败，可使用默认模型或手动输入：${error.message}`;
+      status.title = error.message;
+    } finally {
+      if (requestId === this.modelRequestId) {
+        select.disabled = false;
+        refresh.disabled = false;
+        refresh.textContent = '刷新';
+      }
+    }
+  }
+
   loadSettings() {
     const settings = safeJson(localStorage.getItem(STORAGE.ai), {});
     byId('ai-endpoint').value = settings.endpoint || '/api/ai-design';
     byId('ai-cli').value = settings.cli || 'codex';
-    byId('ai-model').value = settings.model || '';
+    this.savedModel = settings.model || '';
+    this.renderModelOptions([], this.savedModel);
     byId('ai-fallback').checked = settings.fallback !== false;
   }
 
@@ -1505,7 +1595,7 @@ class AiController {
     localStorage.setItem(STORAGE.ai, JSON.stringify({
       endpoint: byId('ai-endpoint').value.trim() || '/api/ai-design',
       cli: byId('ai-cli').value,
-      model: byId('ai-model').value.trim(),
+      model: this.modelValue(),
       fallback: byId('ai-fallback').checked,
     }));
     if (notify) toast('AI 连接设置已保存', 'success');
@@ -1530,7 +1620,7 @@ class AiController {
         body: JSON.stringify({
           mode: 'test',
           cli: requestedCli,
-          model: byId('ai-model').value.trim(),
+          model: this.modelValue(),
           fallback: byId('ai-fallback').checked,
         }),
       });
@@ -1538,7 +1628,10 @@ class AiController {
       const data = await response.json();
       const switched = data.cli && data.cli !== requestedCli;
       if (data.cli) byId('ai-cli').value = data.cli;
-      if (switched) this.saveSettings(false);
+      if (switched) {
+        await this.loadModels({ selected: '' });
+        this.saveSettings(false);
+      }
       this.setConnection(switched ? 'fallback' : 'ready', switched ? '备用链路已就绪' : '连接可用', `${data.output_text || data.cli} · ${data.latency_ms || 0}ms`);
       this.append(data.output_text || '真实请求验证成功');
       toast(switched ? '已切换到可用 CLI' : 'AI 连接验证成功', 'success');
@@ -1577,7 +1670,7 @@ class AiController {
       selectedElement: selected,
       locale: 'zh',
       cli: requestedCli,
-      model: byId('ai-model').value.trim(),
+      model: this.modelValue(),
       fallback: byId('ai-fallback').checked,
       stream: true,
     };
@@ -1635,7 +1728,9 @@ class AiController {
       model.scheduleAutosave();
       model.signal('history');
       progress.textContent = '页面已应用。可以继续在画布上精修。';
+      const cliChanged = activeCli && activeCli !== byId('ai-cli').value;
       if (activeCli) byId('ai-cli').value = activeCli;
+      if (cliChanged) await this.loadModels({ selected: '' });
       if (usedFallback) this.saveSettings(false);
       this.setConnection(usedFallback ? 'fallback' : 'ready', usedFallback ? '已使用备用 CLI 完成' : 'AI Design 已连接', activeCli === 'claude' ? 'Claude Code CLI' : 'Codex CLI');
       renderTree();
@@ -2000,6 +2095,12 @@ function bindActions() {
   byId('ai-close').onclick = () => ai.close();
   byId('ai-save-settings').onclick = () => ai.saveSettings();
   byId('ai-test').onclick = () => ai.test();
+  byId('ai-cli').onchange = () => {
+    ai.setConnection('idle', '尚未验证', 'CLI 已切换，请重新测试连接');
+    ai.loadModels({ refresh: true, selected: '' });
+  };
+  byId('ai-model').onchange = () => ai.updateCustomModelInput();
+  byId('ai-refresh-models').onclick = () => ai.loadModels({ refresh: true });
   byId('ai-send').onclick = () => ai.send();
   byId('ai-stop').onclick = () => ai.stop();
   byId('review-add').onclick = () => ai.addReview();
