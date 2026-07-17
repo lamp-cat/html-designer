@@ -276,8 +276,25 @@ body.dragging-block iframe { pointer-events: none; }
 .selection-actions .danger-action:hover { background: rgba(255,90,104,.16); color: #ff8991; }
 .resize-knob { border-radius: 3px; background: var(--focus); }
 .drop-marker { background: #ff6d91; animation: marker-pulse .8s infinite alternate; }
-.ai-drawer { border-right: 0; animation: ai-drawer-in 190ms cubic-bezier(.2,.8,.2,1) both; }
+.ai-drawer { overflow-y: auto; align-content: start; border-right: 0; scrollbar-gutter: stable; overscroll-behavior: contain; animation: ai-drawer-in 190ms cubic-bezier(.2,.8,.2,1) both; }
+.ai-log { min-height: 100px; max-height: min(34vh, 300px); }
 #ai-button.active { background: var(--accent-soft); color: var(--accent); }
+.ai-connection { display: grid !important; min-height: 48px; padding: 8px 9px; grid-template-columns: 9px minmax(0,1fr); align-items: center; gap: 2px 8px !important; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); }
+.ai-connection > span { width: 8px; height: 8px; grid-row: 1 / span 2; border-radius: 50%; background: var(--muted); box-shadow: 0 0 0 4px color-mix(in srgb, var(--muted) 10%, transparent); }
+.ai-connection strong { color: var(--ink); font-size: 9px; }
+.ai-connection small { overflow: hidden; color: var(--muted); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.ai-connection[data-state="checking"] > span { background: var(--accent); animation: status-pulse .8s infinite; }
+.ai-connection[data-state="ready"] { border-color: color-mix(in srgb, var(--accent-2) 35%, var(--line)); }
+.ai-connection[data-state="ready"] > span { background: var(--accent-2); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-2) 12%, transparent); }
+.ai-connection[data-state="fallback"] { border-color: color-mix(in srgb, var(--warning) 40%, var(--line)); }
+.ai-connection[data-state="fallback"] > span { background: var(--warning); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warning) 12%, transparent); }
+.ai-connection[data-state="error"] { border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
+.ai-connection[data-state="error"] > span { background: var(--danger); box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 12%, transparent); }
+.ai-settings .ai-fallback { display: flex; min-height: 43px; padding: 7px 8px; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; background: color-mix(in srgb, var(--panel-2) 70%, transparent); cursor: pointer; }
+.ai-settings .ai-fallback input { width: 14px; height: 14px; margin: 0; accent-color: var(--accent); }
+.ai-settings .ai-fallback span { display: grid; gap: 2px; }
+.ai-settings .ai-fallback strong { color: var(--ink); font-size: 9px; }
+.ai-settings .ai-fallback small { color: var(--muted); font-size: 8px; }
 .source-shell { grid-template-rows: 44px minmax(0,1fr); }
 .source-head > span { display: inline-flex; align-items: center; gap: 8px; }
 .source-head > div { display: flex; gap: 15px; }

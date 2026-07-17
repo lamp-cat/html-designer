@@ -509,8 +509,11 @@ AI Design 通过本地 Node 服务调用 Codex CLI 或 Claude Code CLI。
 3. Endpoint 通常保持 `/api/ai-design`。
 4. 选择 Codex CLI 或 Claude Code CLI。
 5. 模型名称可以留空。
-6. 保存设置。
-7. 点击“测试连接”。
+6. 建议保持“自动切换可用 CLI”开启。当前 CLI 无法启动、未授权、超时或模型网关不兼容时，任务会继续尝试本机另一条 CLI 链路。
+7. 保存设置。
+8. 点击“测试连接”。测试不再只读取版本号，而会发送一次最小真实请求，同时检查 CLI 启动、登录、模型服务和输出链路。
+
+连接状态会显示在设置顶部。发生自动切换后，成功完成任务的 CLI 会保存为后续默认选项；你仍可随时手动切回并重新测试。
 
 ### 修改整个页面
 
@@ -555,6 +558,8 @@ AI 会收到当前完整 HTML。
 HTML_DESIGNER_AGENT_CLI=codex
 HTML_DESIGNER_AGENT_MODEL=
 HTML_DESIGNER_AGENT_TIMEOUT_MS=180000
+HTML_DESIGNER_AGENT_PROBE_TIMEOUT_MS=60000
+HTML_DESIGNER_AGENT_OUTPUT_LIMIT=8000000
 ```
 
 ## 18. 自动保存和撤销
@@ -646,6 +651,9 @@ macOS 使用 `⌘`，Windows/Linux 使用 `Ctrl`。
 4. Endpoint 是否正确。
 5. 模型名是否有效；不确定时留空。
 6. 是否超过默认 180 秒超时。
+7. 点击“测试连接”查看每条 CLI 的真实请求结果。
+
+如果提示“本机 API 网关不接受 Claude Code 的系统提示格式”，表示 `ANTHROPIC_BASE_URL` 对应服务没有正确实现 Anthropic Messages 协议：`system` 应作为顶层字段处理，`messages` 中只能出现 `user` 和 `assistant`。可以修正该网关，或开启“自动切换可用 CLI”让任务继续使用 Codex CLI。
 
 ### 恢复按钮没有出现
 

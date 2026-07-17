@@ -1476,16 +1476,39 @@ class AiController {
 
   updateTarget() { byId('ai-target').textContent = model.selected ? `目标：${canvas.describe(model.selected)}` : '目标：整个页面'; }
 
+  setConnection(state, title, detail = '') {
+    const root = byId('ai-connection');
+    root.dataset.state = state;
+    pick('strong', root).textContent = title;
+    pick('small', root).textContent = detail;
+  }
+
+  async responseError(response) {
+    const text = await response.text();
+    const data = safeJson(text, {});
+    const detail = [data.error || `HTTP ${response.status}`, data.hint].filter(Boolean).join(' · ');
+    const error = new Error(detail);
+    error.code = data.code || `HTTP_${response.status}`;
+    error.attempts = data.attempts || [];
+    return error;
+  }
+
   loadSettings() {
     const settings = safeJson(localStorage.getItem(STORAGE.ai), {});
     byId('ai-endpoint').value = settings.endpoint || '/api/ai-design';
     byId('ai-cli').value = settings.cli || 'codex';
     byId('ai-model').value = settings.model || '';
+    byId('ai-fallback').checked = settings.fallback !== false;
   }
 
-  saveSettings() {
-    localStorage.setItem(STORAGE.ai, JSON.stringify({ endpoint: byId('ai-endpoint').value.trim() || '/api/ai-design', cli: byId('ai-cli').value, model: byId('ai-model').value.trim() }));
-    toast('AI 连接设置已保存', 'success');
+  saveSettings(notify = true) {
+    localStorage.setItem(STORAGE.ai, JSON.stringify({
+      endpoint: byId('ai-endpoint').value.trim() || '/api/ai-design',
+      cli: byId('ai-cli').value,
+      model: byId('ai-model').value.trim(),
+      fallback: byId('ai-fallback').checked,
+    }));
+    if (notify) toast('AI 连接设置已保存', 'success');
   }
 
   selectedContext() {
@@ -1495,13 +1518,37 @@ class AiController {
 
   async test() {
     this.saveSettings();
+    const button = byId('ai-test');
+    const requestedCli = byId('ai-cli').value;
+    this.setConnection('checking', '正在验证真实请求', '版本、授权和模型服务都会检查');
+    button.disabled = true;
+    button.textContent = '验证中…';
     try {
-      const response = await fetch(byId('ai-endpoint').value.trim(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'test', cli: byId('ai-cli').value }) });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const response = await fetch(byId('ai-endpoint').value.trim() || '/api/ai-design', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'test',
+          cli: requestedCli,
+          model: byId('ai-model').value.trim(),
+          fallback: byId('ai-fallback').checked,
+        }),
+      });
+      if (!response.ok) throw await this.responseError(response);
       const data = await response.json();
-      this.append(data.output_text || '连接成功');
-      toast('AI 连接成功', 'success');
-    } catch (error) { this.append(`连接失败：${error.message}`, 'error'); }
+      const switched = data.cli && data.cli !== requestedCli;
+      if (data.cli) byId('ai-cli').value = data.cli;
+      if (switched) this.saveSettings(false);
+      this.setConnection(switched ? 'fallback' : 'ready', switched ? '备用链路已就绪' : '连接可用', `${data.output_text || data.cli} · ${data.latency_ms || 0}ms`);
+      this.append(data.output_text || '真实请求验证成功');
+      toast(switched ? '已切换到可用 CLI' : 'AI 连接验证成功', 'success');
+    } catch (error) {
+      this.setConnection('error', '连接不可用', error.message);
+      this.append(`连接失败：${error.message}`, 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = '测试连接';
+    }
   }
 
   async send(options = {}) {
@@ -1513,7 +1560,12 @@ class AiController {
     input.value = '';
     const progress = this.append('正在连接本机 CLI…');
     this.abortController?.abort();
-    this.abortController = new AbortController();
+    const controller = new AbortController();
+    this.abortController = controller;
+    const requestedCli = byId('ai-cli').value;
+    let activeCli = requestedCli;
+    let usedFallback = false;
+    this.setConnection('checking', `正在连接 ${requestedCli === 'claude' ? 'Claude Code CLI' : 'Codex CLI'}`, '请求已发送到本机服务');
     byId('ai-stop').hidden = false;
     const selected = this.selectedContext();
     const annotations = options.reviews || [{ type: 'chat', text: brief, target: selected?.target || 'page', path: selected?.path || null, selectedHtml: selected?.html || '' }];
@@ -1524,13 +1576,14 @@ class AiController {
       annotations,
       selectedElement: selected,
       locale: 'zh',
-      cli: byId('ai-cli').value,
+      cli: requestedCli,
       model: byId('ai-model').value.trim(),
+      fallback: byId('ai-fallback').checked,
       stream: true,
     };
     try {
-      const response = await fetch(byId('ai-endpoint').value.trim() || '/api/ai-design', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: this.abortController.signal });
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      const response = await fetch(byId('ai-endpoint').value.trim() || '/api/ai-design', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal });
+      if (!response.ok) throw await this.responseError(response);
       let finalHtml = '';
       if (response.body?.getReader) {
         const reader = response.body.getReader();
@@ -1545,11 +1598,24 @@ class AiController {
           for (const line of lines) {
             if (!line.trim()) continue;
             const event = safeJson(line, { type: 'stdout', text: line });
+            if (event.type === 'status' && event.text) progress.textContent = event.text;
+            if (event.type === 'start' && event.cli) activeCli = event.cli;
+            if (event.type === 'fallback') {
+              finalHtml = '';
+              usedFallback = true;
+              activeCli = event.to || activeCli;
+              progress.textContent = event.text || '当前 CLI 不可用，正在切换备用链路…';
+              this.setConnection('fallback', '正在切换备用链路', event.error || event.hint || '');
+            }
             if (event.type === 'html' && event.html) finalHtml = event.html;
-            if (event.type === 'done') finalHtml = event.html || extractHtml(event.output_text) || finalHtml;
+            if (event.type === 'done') {
+              finalHtml = event.html || extractHtml(event.output_text) || finalHtml;
+              activeCli = event.cli || activeCli;
+              usedFallback ||= Boolean(event.fallback);
+            }
             if (event.type === 'stdout' && event.text) progress.textContent = visibleProgress(event.text) || progress.textContent;
             if (event.type === 'stderr' && event.text) progress.textContent = visibleProgress(event.text) || progress.textContent;
-            if (event.type === 'error') throw new Error(event.error || 'AI 输出失败');
+            if (event.type === 'error') throw new Error([event.message || event.error || 'AI 输出失败', event.hint].filter(Boolean).join(' · '));
           }
         }
       } else {
@@ -1569,13 +1635,19 @@ class AiController {
       model.scheduleAutosave();
       model.signal('history');
       progress.textContent = '页面已应用。可以继续在画布上精修。';
+      if (activeCli) byId('ai-cli').value = activeCli;
+      if (usedFallback) this.saveSettings(false);
+      this.setConnection(usedFallback ? 'fallback' : 'ready', usedFallback ? '已使用备用 CLI 完成' : 'AI Design 已连接', activeCli === 'claude' ? 'Claude Code CLI' : 'Codex CLI');
       renderTree();
     } catch (error) {
       progress.classList.add('error');
       progress.textContent = error.name === 'AbortError' ? '已停止本次任务。' : `AI Design 失败：${error.message}`;
+      this.setConnection(error.name === 'AbortError' ? 'idle' : 'error', error.name === 'AbortError' ? '任务已停止' : '连接失败', error.name === 'AbortError' ? '可以重新发送请求' : error.message);
     } finally {
-      this.abortController = null;
-      byId('ai-stop').hidden = true;
+      if (this.abortController === controller) {
+        this.abortController = null;
+        byId('ai-stop').hidden = true;
+      }
     }
   }
 
