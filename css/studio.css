@@ -444,7 +444,10 @@ html[data-theme="light"] .brand-button img { filter: invert(1); }
 .canvas-shell[data-device="tablet"] { width: min(820px, 100%); box-shadow: 0 0 0 1px rgba(0,0,0,0.12), var(--shadow); }
 .canvas-shell[data-device="mobile"] { width: min(390px, 100%); box-shadow: 0 0 0 1px rgba(0,0,0,0.12), var(--shadow); }
 
-#design-canvas { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+#design-canvas,
+#browse-canvas { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+#browse-canvas[hidden] { display: none; }
+.canvas-shell.browsing #design-canvas { display: none; }
 
 .selection-layer,
 .hover-frame,
@@ -617,8 +620,10 @@ html[data-theme="light"] .brand-button img { filter: invert(1); }
 .studio.preview-mode .statusbar { display: none; }
 .studio.preview-mode { grid-template-rows: minmax(0, 1fr); }
 .studio.preview-mode .studio-grid { grid-template-columns: 1fr; }
-.studio.source-mode .studio-grid { grid-template-columns: minmax(0, 1fr); }
-.studio.source-mode .rail { display: none; }
+.studio.source-mode .studio-grid,
+.studio.browse-mode .studio-grid { grid-template-columns: minmax(0, 1fr); }
+.studio.source-mode .rail,
+.studio.browse-mode .rail { display: none; }
 
 .leave-preview {
   position: fixed;

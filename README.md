@@ -1,19 +1,22 @@
 # HTML Designer
 
-HTML Designer 是一个本地优先的可视化 HTML 工作台。它面向独立 HTML 文档：打开文件后，可以直接在渲染画布上选择元素、修改文字和样式、插入组件，也可以切换到源码模式完成精确编辑。
+HTML Designer 是一个本地优先的可视化 HTML 工作台。它面向独立 HTML 文档：打开文件后，可以在编辑画布选择元素、修改文字和样式、插入组件，在浏览画布运行页面交互，也可以切换到源码模式完成精确编辑。
 
 ## 主要能力
 
-- 可视化选择、文字编辑、复制、删除、调整顺序和尺寸。
-- 24 个内置组件，覆盖文字、布局、组件、媒体、列表、表单、导航和数据展示。
-- DOM 结构树、组件搜索和可复用片段。
-- 样式、属性、交互和局部 HTML 检查器。
-- Visual/Source 双模式编辑。
+- 可视化选择、文字编辑、复制、删除、自由移动、调整顺序和尺寸。
+- 24 个内置组件，覆盖文字、布局、组件、媒体、列表、表单、导航和数据展示，支持拖放、单击插入和快速插入面板。
+- 可折叠 DOM 结构树、三段落点拖拽重排、组件搜索和可复用片段。
+- 带元素摘要、实时尺寸与可视化盒模型的样式、属性、交互和局部 HTML 检查器。
+- 编辑/浏览/源码三模式：编辑模式操作 DOM，浏览模式运行页面交互，源码模式精确修改完整 HTML。
 - File System Access API 直接写回本地文件。
 - 无写入权限时下载导出 HTML。
 - 磁盘版本与编辑器内容并排比较。
-- 桌面、平板和手机画布宽度。
-- 安全的编辑画布与可运行脚本的外部预览。
+- 桌面、平板和手机画布宽度、实时画布尺寸，以及 50%–150% 画布缩放和适应窗口。
+- 可收起的组件/检查器面板、选中元素快捷工具条和自定义工具提示。
+- `Ctrl/⌘ + K` 命令面板、`I` 快速插入、快捷键速查、HTML/选择器一键复制。
+- 安全的编辑画布、隔离且可运行脚本的浏览画布，以及新标签页外部预览。
+- 新建文档使用纯独立的 Signal House 示例网站，不包含产品自身界面内容。
 - 本地草稿自动保存和 36 步可视化历史。
 - 通过本机 Codex CLI 或 Claude Code CLI 使用 AI Design。
 
@@ -41,12 +44,17 @@ AI Design 通过 `server.js` 调用本机 CLI，不在浏览器内保存 API Key
 - Codex CLI
 - Claude Code CLI
 
+连接设置中的“模型”会随 CLI 自动刷新：Codex 读取 CLI 原生模型目录，Claude Code 读取当前 CLI 公布的模型别名和本机模型配置，并保留手动模型 ID 入口。“测试连接”会发送一次最小真实请求，验证版本、授权和模型链路。默认开启自动切换：当前 CLI 不可用时，AI Design 会尝试本机另一条 CLI，并在界面中显示具体原因。
+
 可选环境变量：
 
 ```bash
 HTML_DESIGNER_AGENT_CLI=codex
 HTML_DESIGNER_AGENT_MODEL=
 HTML_DESIGNER_AGENT_TIMEOUT_MS=180000
+HTML_DESIGNER_AGENT_PROBE_TIMEOUT_MS=60000
+HTML_DESIGNER_AGENT_OUTPUT_LIMIT=8000000
+HTML_DESIGNER_MODEL_CATALOG_TTL_MS=300000
 ```
 
 ## 浏览器支持
@@ -54,14 +62,16 @@ HTML_DESIGNER_AGENT_TIMEOUT_MS=180000
 - Chrome、Edge、Arc：支持打开文件并直接保存回磁盘。
 - Safari、Firefox：支持导入、编辑和下载导出；不支持直接写回。
 
-编辑画布使用不含 `allow-scripts` 的 sandbox，导入页面中的 JavaScript 不会在编辑状态执行。需要测试脚本时，请使用“外部预览”。
+编辑画布使用不含 `allow-scripts` 的 sandbox，导入页面中的 JavaScript 不会在编辑状态执行。切换到“浏览”后，页面会通过独立来源的 Data URL 在浏览 sandbox 中运行脚本；也可以使用外部预览。
 
 ## 项目结构
 
 ```text
 index.html              应用入口与完整工作台结构
 css/studio.css          主题、布局、画布与面板样式
+css/studio-polish.css   品牌、图标、动效和增强交互样式
 js/studio-app.js        状态、画布、文件、检查器、组件库和 AI 客户端
+logo-mark.svg           HTML Designer 矢量品牌标志与站点图标
 server.js               静态服务器与本机 CLI 桥接
 HTML_DESIGNER_USER_GUIDE.md
                         中文详细使用手册

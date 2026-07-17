@@ -8,48 +8,95 @@ const STORAGE = Object.freeze({
   theme: 'html-designer.v1.theme',
   ai: 'html-designer.v1.ai',
 });
+const CUSTOM_MODEL_VALUE = '__custom__';
 
 const EMPTY_DOCUMENT = `<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Untitled design</title>
+  <title>Signal House · 周末创意工作坊</title>
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; background: #f3f5f0; color: #142017; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
-    .page { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
-    .hero { display: grid; min-height: 72vh; grid-template-columns: 1.1fr .9fr; gap: 48px; align-items: center; padding: 72px 0; }
-    .eyebrow { color: #26723b; font-size: 13px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-    h1 { margin: 16px 0 22px; font-size: clamp(48px, 8vw, 92px); letter-spacing: -.065em; line-height: .92; }
-    .lead { max-width: 640px; color: #566159; font-size: 19px; line-height: 1.7; }
-    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
-    .button { display: inline-flex; min-height: 46px; padding: 0 20px; align-items: center; justify-content: center; border: 1px solid #142017; border-radius: 999px; color: #142017; font-weight: 750; text-decoration: none; }
-    .button.primary { background: #142017; color: white; }
-    .card { padding: 32px; border: 1px solid rgba(20,32,23,.14); border-radius: 24px; background: white; box-shadow: 0 32px 90px rgba(20,32,23,.12); }
-    .card-mark { display: grid; aspect-ratio: 4 / 3; margin-bottom: 24px; place-items: center; border-radius: 16px; background: #dff6df; color: #26723b; font-size: 64px; }
-    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding: 0 0 72px; }
-    .feature { min-height: 180px; padding: 24px; border: 1px solid rgba(20,32,23,.12); border-radius: 18px; background: rgba(255,255,255,.68); }
-    @media (max-width: 800px) { .hero { grid-template-columns: 1fr; } .features { grid-template-columns: 1fr; } }
+    :root { color-scheme: light; --paper:#f5f1e8; --ink:#18221d; --muted:#647069; --accent:#f15b3b; --card:#fffdf8; --line:rgba(24,34,29,.14); }
+    :root[data-theme="night"] { color-scheme:dark; --paper:#151b18; --ink:#f7f3e9; --muted:#a7b1aa; --accent:#ff795d; --card:#202824; --line:rgba(255,255,255,.14); }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.6 ui-rounded,"Avenir Next",system-ui,sans-serif; transition:background .2s,color .2s; }
+    button,input { font:inherit; }
+    button,a { -webkit-tap-highlight-color:transparent; }
+    .wrap { width:min(1120px,calc(100% - 36px)); margin:auto; }
+    .site-head { display:flex; min-height:76px; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); }
+    .brand { color:inherit; font-size:18px; font-weight:900; text-decoration:none; }
+    .brand span { color:var(--accent); }
+    nav { display:flex; align-items:center; gap:20px; }
+    nav a { color:var(--muted); font-size:14px; text-decoration:none; }
+    .icon-button { width:38px; height:38px; border:1px solid var(--line); border-radius:50%; background:var(--card); color:var(--ink); cursor:pointer; }
+    .hero { display:grid; min-height:650px; padding:72px 0; grid-template-columns:1.15fr .85fr; align-items:center; gap:70px; }
+    .kicker { color:var(--accent); font-size:12px; font-weight:900; letter-spacing:.16em; text-transform:uppercase; }
+    h1 { max-width:760px; margin:18px 0 24px; font:900 clamp(56px,8vw,112px)/.86 Georgia,serif; letter-spacing:-.06em; }
+    .lead { max-width:620px; color:var(--muted); font-size:19px; }
+    .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:30px; }
+    .button { display:inline-flex; min-height:48px; padding:0 20px; align-items:center; justify-content:center; border:1px solid var(--ink); border-radius:8px; background:transparent; color:var(--ink); font-weight:800; text-decoration:none; cursor:pointer; }
+    .button.primary { border-color:var(--accent); background:var(--accent); color:white; }
+    .poster { position:relative; min-height:430px; padding:34px; overflow:hidden; border-radius:8px; background:#18221d; color:#f9f3e7; box-shadow:18px 18px 0 var(--accent); }
+    .poster::after { content:""; position:absolute; width:220px; height:220px; right:-50px; bottom:-55px; border:35px solid var(--accent); border-radius:50%; }
+    .poster small { color:#a7b3ac; letter-spacing:.12em; }
+    .poster strong { display:block; max-width:300px; margin-top:90px; font:700 52px/.95 Georgia,serif; }
+    .poster time { display:block; margin-top:42px; font-size:18px; }
+    .section { padding:90px 0; border-top:1px solid var(--line); }
+    .section-head { display:flex; margin-bottom:30px; align-items:end; justify-content:space-between; gap:24px; }
+    h2 { margin:0; font:800 clamp(34px,5vw,62px)/1 Georgia,serif; letter-spacing:-.04em; }
+    .section-head p { max-width:460px; margin:0; color:var(--muted); }
+    .schedule { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
+    .session { min-height:250px; padding:24px; border:1px solid var(--line); border-radius:8px; background:var(--card); }
+    .session time { color:var(--accent); font-size:13px; font-weight:900; }
+    .session h3 { margin:48px 0 8px; font-size:24px; }
+    .session p { color:var(--muted); }
+    details { padding:20px 0; border-bottom:1px solid var(--line); }
+    summary { display:flex; justify-content:space-between; font-weight:800; cursor:pointer; }
+    summary::after { content:"+"; color:var(--accent); }
+    details[open] summary::after { content:"−"; }
+    details p { max-width:720px; color:var(--muted); }
+    .site-foot { display:flex; padding:42px 0; justify-content:space-between; color:var(--muted); font-size:13px; }
+    dialog { width:min(470px,calc(100% - 30px)); padding:0; border:0; border-radius:10px; background:var(--card); color:var(--ink); box-shadow:0 30px 100px rgba(0,0,0,.35); }
+    dialog::backdrop { background:rgba(10,15,12,.64); backdrop-filter:blur(5px); }
+    .dialog-body { padding:28px; }
+    .dialog-head { display:flex; align-items:start; justify-content:space-between; }
+    .dialog-head h2 { font-size:34px; }
+    .dialog-head button { border:0; background:transparent; color:var(--muted); font-size:26px; cursor:pointer; }
+    form { display:grid; margin-top:24px; gap:12px; }
+    label { display:grid; gap:5px; color:var(--muted); font-size:13px; }
+    input { height:45px; padding:0 12px; border:1px solid var(--line); border-radius:6px; background:var(--paper); color:var(--ink); }
+    .notice { position:fixed; left:50%; bottom:24px; padding:11px 16px; border-radius:7px; background:var(--ink); color:var(--paper); transform:translate(-50%,120px); transition:transform .25s; }
+    .notice.show { transform:translate(-50%,0); }
+    @media (max-width:800px) { nav a { display:none; } .hero { min-height:auto; grid-template-columns:1fr; gap:42px; } .poster { min-height:340px; } .schedule { grid-template-columns:1fr; } .section-head,.site-foot { align-items:start; flex-direction:column; } }
   </style>
 </head>
 <body>
-  <main class="page">
-    <section class="hero">
-      <div>
-        <span class="eyebrow">Editable starter</span>
-        <h1>Design directly on the page.</h1>
-        <p class="lead">选择任何元素，修改文字、布局和样式。你也可以从左侧拖入新组件，或切换到源码模式进行精确编辑。</p>
-        <div class="actions"><a class="button primary" href="#features">开始编辑</a><a class="button" href="#">了解更多</a></div>
-      </div>
-      <article class="card"><div class="card-mark">✦</div><h2>HTML Designer</h2><p>这是一个可以自由替换的示例卡片。</p></article>
+  <header class="wrap site-head">
+    <a class="brand" href="#top">Signal<span>House</span></a>
+    <nav aria-label="主导航"><a href="#program">日程</a><a href="#questions">问答</a><button class="icon-button" id="theme-toggle" type="button" aria-label="切换明暗主题">◐</button></nav>
+  </header>
+  <main id="top">
+    <section class="wrap hero">
+      <div><span class="kicker">Hangzhou · Weekend 08</span><h1>把好奇心带到现场。</h1><p class="lead">三场小型工作坊，把写作、声音和城市观察放进同一个周末。每场仅开放 24 个席位。</p><div class="actions"><button class="button primary" type="button" data-open-signup>立即报名</button><a class="button" href="#program">查看日程</a></div></div>
+      <aside class="poster" aria-label="活动海报"><small>SIGNAL HOUSE PRESENTS</small><strong>Ideas need a room.</strong><time datetime="2026-08-08">08—09 AUG 2026</time></aside>
     </section>
-    <section class="features" id="features">
-      <article class="feature"><h3>Visual</h3><p>直接在渲染结果上选择和调整。</p></article>
-      <article class="feature"><h3>Local</h3><p>通过浏览器权限保存回本地文件。</p></article>
-      <article class="feature"><h3>Flexible</h3><p>随时切换到完整 HTML 源码。</p></article>
-    </section>
+    <section class="section" id="program"><div class="wrap"><div class="section-head"><h2>周末日程</h2><p>每场活动独立报名，也可以选择完整通票。所有材料与午间饮品都已包含。</p></div><div class="schedule"><article class="session"><time>周六 10:00</time><h3>城市漫游写作</h3><p>从街区细节出发，完成一篇短篇非虚构作品。</p></article><article class="session"><time>周六 15:00</time><h3>声音采集入门</h3><p>用随身设备记录环境声音，并制作一分钟声音明信片。</p></article><article class="session"><time>周日 13:30</time><h3>小型出版实验</h3><p>把周末素材编辑成一本可以带走的折页刊物。</p></article></div></div></section>
+    <section class="section" id="questions"><div class="wrap"><div class="section-head"><h2>常见问题</h2><p>不需要任何专业经验，只需要带上可以记录的设备。</p></div><details><summary>活动在哪里举行？</summary><p>报名成功后会收到具体地址与交通建议，场地位于杭州拱墅区。</p></details><details><summary>可以临时取消吗？</summary><p>活动开始前 48 小时可以免费取消，也可以将席位转给朋友。</p></details><details><summary>需要携带什么？</summary><p>手机、耳机和一本你喜欢的笔记本即可，其余材料由现场提供。</p></details></div></section>
   </main>
+  <footer class="wrap site-foot"><strong>Signal House</strong><span>Independent workshops since 2022</span></footer>
+  <dialog id="signup-dialog"><div class="dialog-body"><div class="dialog-head"><div><span class="kicker">Reserve a seat</span><h2>报名工作坊</h2></div><button type="button" data-close-dialog aria-label="关闭">×</button></div><form id="signup-form"><label>姓名<input name="name" required autocomplete="name"></label><label>邮箱<input name="email" type="email" required autocomplete="email"></label><label>选择场次<input name="session" value="周末完整通票" required></label><button class="button primary" type="submit">确认报名</button></form></div></dialog>
+  <div class="notice" id="notice" role="status">报名信息已提交，我们会尽快联系你。</div>
+  <script>
+    const root = document.documentElement;
+    const dialog = document.querySelector('#signup-dialog');
+    const notice = document.querySelector('#notice');
+    document.querySelector('#theme-toggle').addEventListener('click', () => { root.dataset.theme = root.dataset.theme === 'night' ? '' : 'night'; });
+    document.querySelector('[data-open-signup]').addEventListener('click', () => dialog.showModal());
+    document.querySelector('[data-close-dialog]').addEventListener('click', () => dialog.close());
+    document.querySelector('#signup-form').addEventListener('submit', (event) => { event.preventDefault(); dialog.close(); notice.classList.add('show'); window.setTimeout(() => notice.classList.remove('show'), 2600); event.currentTarget.reset(); });
+  </script>
 </body>
 </html>`;
 
@@ -82,11 +129,33 @@ const BLOCKS = [
 
 const VOID_TAGS = new Set(['AREA', 'BASE', 'BR', 'COL', 'EMBED', 'HR', 'IMG', 'INPUT', 'LINK', 'META', 'PARAM', 'SOURCE', 'TRACK', 'WBR']);
 const FORBIDDEN_SELECT = new Set(['HTML', 'HEAD', 'META', 'LINK', 'STYLE', 'SCRIPT', 'TITLE', 'BASE']);
+const FLOW_CONTAINERS = new Set(['BODY', 'MAIN', 'SECTION', 'ARTICLE', 'ASIDE', 'NAV', 'HEADER', 'FOOTER', 'DIV', 'FORM', 'FIGURE', 'FIGCAPTION', 'BLOCKQUOTE', 'DETAILS', 'DIALOG', 'FIELDSET', 'LI', 'DD', 'TD', 'TH']);
+const PHRASING_CONTAINERS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'A', 'BUTTON', 'LABEL', 'SPAN', 'STRONG', 'EM', 'SMALL', 'MARK', 'SUMMARY', 'DT']);
+const PHRASING_CONTENT = new Set(['A', 'ABBR', 'B', 'BDI', 'BDO', 'BR', 'BUTTON', 'CITE', 'CODE', 'DATA', 'DEL', 'EM', 'I', 'IMG', 'INPUT', 'INS', 'KBD', 'LABEL', 'MARK', 'Q', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TIME', 'U', 'VAR', 'WBR']);
 
 function escapeText(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   })[char]);
+}
+
+function iconMarkup(name, className = 'icon') {
+  return `<svg class="${escapeText(className)}" aria-hidden="true"><use href="#i-${escapeText(name)}"></use></svg>`;
+}
+
+async function copyText(value, message = '已复制') {
+  try {
+    await navigator.clipboard.writeText(String(value || ''));
+    toast(message, 'success');
+  } catch {
+    toast('复制失败，请检查浏览器权限', 'error');
+  }
+}
+
+function setStatus(message) {
+  const target = byId('status-text');
+  if (!target) return;
+  target.innerHTML = `<i></i>${escapeText(message || '准备就绪')}`;
 }
 
 function safeJson(value, fallback) {
@@ -147,6 +216,18 @@ class ModalService {
       await navigator.clipboard.writeText(newText);
       toast('已复制编辑器内容', 'success');
     };
+  }
+
+  shortcuts() {
+    const rows = [
+      ['保存文档', ['⌘', 'S']], ['撤销', ['⌘', 'Z']], ['重做', ['⇧', '⌘', 'Z']],
+      ['复制元素', ['⌘', 'D']], ['删除元素', ['⌫']], ['选择父元素', ['⇧', '↑']],
+      ['元素上移', ['⌥', '↑']], ['元素下移', ['⌥', '↓']], ['沉浸浏览', ['P']],
+      ['命令面板', ['⌘', 'K']], ['取消选择 / 退出', ['Esc']], ['快捷键帮助', ['?']],
+      ['组件搜索', ['/']], ['快速插入组件', ['I']],
+    ];
+    this.root.innerHTML = `<section class="modal-card shortcuts" role="dialog" aria-modal="true" aria-label="快捷键"><header class="modal-head"><h2>快捷键</h2><button type="button" data-close aria-label="关闭">×</button></header><div class="modal-body"><p class="shortcut-intro">用键盘完成高频操作。Windows 和 Linux 上请使用 Ctrl 代替 ⌘。</p><div class="shortcut-grid">${rows.map(([label, keys]) => `<div class="shortcut-row"><strong>${escapeText(label)}</strong><span>${keys.map((key) => `<kbd>${escapeText(key)}</kbd>`).join('')}</span></div>`).join('')}</div></div><footer class="modal-foot"><button class="primary" type="button" data-close-footer>知道了</button></footer></section>`;
+    pickAll('[data-close], [data-close-footer]', this.root).forEach((button) => { button.onclick = () => this.close(); });
   }
 }
 
@@ -277,15 +358,19 @@ const model = new StudioModel();
 class CanvasController {
   constructor() {
     this.iframe = byId('design-canvas');
+    this.browseFrame = byId('browse-canvas');
     this.shell = byId('canvas-shell');
     this.layer = byId('selection-layer');
     this.frame = byId('selection-frame');
     this.label = byId('selection-label');
+    this.size = byId('selection-size');
     this.actions = byId('selection-actions');
     this.hover = byId('hover-frame');
     this.dropMarker = byId('drop-marker');
     this.preview = false;
     this.resizeSession = null;
+    this.moveSession = null;
+    this.blockDragSession = null;
     this.dropTarget = null;
     this.initParentEvents();
   }
@@ -298,10 +383,12 @@ class CanvasController {
     pickAll('[data-resize]', this.layer).forEach((handle) => {
       handle.addEventListener('pointerdown', (event) => this.beginResize(event, handle.dataset.resize));
     });
-    document.addEventListener('pointermove', (event) => this.updateResize(event));
-    document.addEventListener('pointerup', () => this.endResize());
+    pick('.selection-grip', this.actions)?.addEventListener('pointerdown', (event) => this.beginMove(event));
+    document.addEventListener('pointermove', (event) => { this.updateResize(event); this.updateMove(event); this.updateBlockDrag(event); });
+    document.addEventListener('pointerup', (event) => { this.endResize(); this.endMove(); this.endBlockDrag(event); });
+    document.addEventListener('pointercancel', (event) => this.endBlockDrag(event, true));
     window.addEventListener('resize', () => this.updateOverlay());
-    new ResizeObserver(() => this.updateOverlay()).observe(this.shell);
+    new ResizeObserver(() => { this.updateOverlay(); updateCanvasInfo(); }).observe(this.shell);
   }
 
   async load(html, options = {}) {
@@ -316,6 +403,7 @@ class CanvasController {
           if (previousSelection) model.signal('selection', null);
           this.wireDocument(model.doc);
           this.updateOverlay();
+          updateCanvasInfo();
           model.signal('document', model.doc);
           if (!options.preserveHistory) model.resetHistory(source);
           resolve(model.doc);
@@ -325,9 +413,52 @@ class CanvasController {
     });
   }
 
+  enterBrowse(html = model.serializeDocument()) {
+    this.preview = true;
+    this.layer.hidden = true;
+    this.hover.hidden = true;
+    this.dropMarker.hidden = true;
+    this.shell.classList.add('browsing');
+    this.iframe.hidden = true;
+    this.browseFrame.hidden = false;
+    const fragmentNavigation = `<script>
+    document.addEventListener('click', function (event) {
+      const link = event.target.closest && event.target.closest('a[href^="#"]');
+      if (!link) return;
+      const hash = link.getAttribute('href');
+      const target = hash === '#' ? document.documentElement : document.getElementById(decodeURIComponent(hash.slice(1)));
+      if (!target) return;
+      event.preventDefault();
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, true);
+  <\/script>`;
+    const source = /<base\b/i.test(html)
+      ? html
+      : html.replace(/<head([^>]*)>/i, `<head$1>\n  <base href="${escapeText(document.baseURI)}">\n  ${fragmentNavigation}`);
+    this.browseFrame.src = `data:text/html;charset=utf-8,${encodeURIComponent(source)}`;
+    updateCanvasInfo();
+  }
+
+  exitBrowse() {
+    this.shell.classList.remove('browsing');
+    this.browseFrame.hidden = true;
+    this.browseFrame.src = 'about:blank';
+    this.iframe.hidden = false;
+    this.preview = false;
+    this.updateOverlay();
+    updateCanvasInfo();
+  }
+
+  showSelectionMenu() {
+    this.actions.classList.remove('opening');
+    void this.actions.offsetWidth;
+    this.actions.classList.add('opening');
+  }
+
   wireDocument(doc) {
     if (!doc?.body) return;
     doc.addEventListener('click', (event) => {
+      if (event.target.closest?.('[data-hd-editing="true"]')) return;
       const link = event.target.closest?.('a');
       if (link) {
         event.preventDefault();
@@ -342,6 +473,7 @@ class CanvasController {
     doc.addEventListener('submit', (event) => event.preventDefault(), true);
     doc.addEventListener('dblclick', (event) => {
       if (this.preview) return;
+      if (event.target.closest?.('[data-hd-editing="true"]')) return;
       event.preventDefault();
       this.editText(event.target);
     }, true);
@@ -364,21 +496,44 @@ class CanvasController {
     }
   }
 
+  editableTextTarget(element) {
+    if (!element || element.childElementCount === 0) return element;
+    const selector = 'h1,h2,h3,h4,h5,h6,p,a,button,span,li,dt,dd,figcaption,summary,strong,em,small';
+    return Array.from(element.querySelectorAll(selector)).find((candidate) => candidate.childElementCount === 0 && candidate.textContent.trim()) || element;
+  }
+
   editText(element = model.selected) {
-    if (!element || FORBIDDEN_SELECT.has(element.tagName)) return;
+    element = this.editableTextTarget(element);
+    if (!element || FORBIDDEN_SELECT.has(element.tagName) || VOID_TAGS.has(element.tagName)) return;
+    if (['INPUT', 'TEXTAREA', 'SELECT', 'OPTION'].includes(element.tagName)) {
+      toast('请在属性检查器中编辑表单内容', 'error');
+      return;
+    }
+    if (element.dataset.hdEditing === 'true') return;
     model.select(element);
     const before = element.innerHTML;
+    const spellcheckBefore = element.getAttribute('spellcheck');
+    let finished = false;
     element.contentEditable = 'true';
     element.dataset.hdEditing = 'true';
+    element.spellcheck = true;
+    this.layer.classList.add('editing');
     element.focus();
     const finish = (cancel = false) => {
+      if (finished) return;
+      finished = true;
       if (cancel) element.innerHTML = before;
       element.removeAttribute('contenteditable');
+      if (spellcheckBefore === null) element.removeAttribute('spellcheck'); else element.setAttribute('spellcheck', spellcheckBefore);
       delete element.dataset.hdEditing;
       element.removeEventListener('blur', onBlur);
       element.removeEventListener('keydown', onKey);
-      if (!cancel) model.checkpoint('编辑文字');
+      this.layer.classList.remove('editing');
+      const changed = element.innerHTML !== before;
+      if (!cancel && changed) model.checkpoint('编辑文字');
+      renderInspectors();
       this.updateOverlay();
+      setStatus(cancel ? '已取消文字编辑' : changed ? '文字已更新' : '文字未修改');
     };
     const onBlur = () => finish(false);
     const onKey = (event) => {
@@ -392,6 +547,7 @@ class CanvasController {
     const selection = element.ownerDocument.getSelection();
     selection.removeAllRanges();
     selection.addRange(range);
+    setStatus('正在编辑文字 · Enter 完成 · Esc 取消');
   }
 
   showHover(element) {
@@ -414,14 +570,25 @@ class CanvasController {
       this.layer.hidden = true;
       return;
     }
+    renderSelectionContext(element);
+    this.layer.hidden = false;
     const rect = element.getBoundingClientRect();
     const left = rect.left;
     const top = rect.top;
     Object.assign(this.frame.style, { left: `${left}px`, top: `${top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
     this.label.textContent = this.describe(element);
+    byId('selection-menu-title').textContent = this.describe(element);
     Object.assign(this.label.style, { left: `${left}px`, top: `${Math.max(0, top - 20)}px` });
-    const toolbarTop = top > 42 ? top - 36 : top + rect.height + 7;
-    Object.assign(this.actions.style, { left: `${Math.max(2, left)}px`, top: `${Math.max(2, toolbarTop)}px` });
+    const width = Math.round(rect.width);
+    const height = Math.round(rect.height);
+    this.size.textContent = `${width} × ${height}`;
+    const sizeTop = top + rect.height + 24 < this.iframe.clientHeight ? top + rect.height + 5 : Math.max(1, top + rect.height - 20);
+    const sizeLeft = Math.min(Math.max(2, left + rect.width - 66), Math.max(2, this.iframe.clientWidth - 68));
+    Object.assign(this.size.style, { left: `${sizeLeft}px`, top: `${sizeTop}px` });
+    const summarySize = byId('summary-size');
+    if (summarySize) summarySize.textContent = `${width} × ${height}`;
+    this.actions.style.removeProperty('left');
+    this.actions.style.removeProperty('top');
     const knobs = {
       x: [left + rect.width - 5, top + rect.height / 2 - 5],
       y: [left + rect.width / 2 - 5, top + rect.height - 5],
@@ -431,7 +598,6 @@ class CanvasController {
       const handle = pick(`[data-resize="${key}"]`, this.layer);
       Object.assign(handle.style, { left: `${x}px`, top: `${y}px` });
     });
-    this.layer.hidden = false;
     renderPath();
   }
 
@@ -442,10 +608,17 @@ class CanvasController {
   }
 
   runCommand(command) {
+    if (command === 'insert') return openInsertPalette();
+    if (command === 'deselect') return model.select(null);
     const element = model.selected;
     if (!element) return;
     if (command === 'edit') return this.editText(element);
     if (command === 'review') return ai.openReview();
+    if (command === 'parent') {
+      const parent = element.parentElement;
+      if (parent && parent !== model.doc.documentElement) model.select(parent);
+      return;
+    }
     if (command === 'duplicate') {
       const copy = element.cloneNode(true);
       element.after(copy);
@@ -466,6 +639,38 @@ class CanvasController {
       element.parentElement.insertBefore(element.nextElementSibling, element);
       model.checkpoint('元素下移');
     }
+    if ((command === 'list-before' || command === 'list-after') && element.tagName === 'LI') {
+      const item = element.cloneNode(false);
+      item.textContent = '新的列表项';
+      if (command === 'list-before') element.before(item); else element.after(item);
+      model.select(item);
+      model.checkpoint('添加列表项');
+    }
+    if ((command === 'row-before' || command === 'row-after') && element.closest('tr')) {
+      const row = element.closest('tr');
+      const newRow = row.cloneNode(true);
+      Array.from(newRow.cells).forEach((cell) => { cell.textContent = '新单元格'; });
+      if (command === 'row-before') row.before(newRow); else row.after(newRow);
+      model.select(newRow.cells[0] || newRow);
+      model.checkpoint('添加表格行');
+    }
+    if ((command === 'col-before' || command === 'col-after') && element.closest('tr')) {
+      const cell = element.closest('th,td');
+      const table = element.closest('table');
+      if (cell && table) {
+        const index = cell.cellIndex + (command === 'col-after' ? 1 : 0);
+        Array.from(table.rows).forEach((row) => {
+          const reference = row.cells[Math.min(index, row.cells.length - 1)];
+          const newCell = model.doc.createElement(row.parentElement?.tagName === 'THEAD' ? 'th' : 'td');
+          if (reference?.getAttribute('style')) newCell.setAttribute('style', reference.getAttribute('style'));
+          newCell.textContent = '新单元格';
+          if (index >= row.cells.length) row.append(newCell); else row.insertBefore(newCell, row.cells[index]);
+        });
+        model.checkpoint('添加表格列');
+      }
+    }
+    renderTree();
+    setStatus(model.history[model.cursor]?.label || '已更新元素');
     this.updateOverlay();
   }
 
@@ -476,6 +681,40 @@ class CanvasController {
     event.currentTarget.setPointerCapture?.(event.pointerId);
     const rect = element.getBoundingClientRect();
     this.resizeSession = { element, axis, x: event.clientX, y: event.clientY, width: rect.width, height: rect.height, ratio: rect.width / Math.max(1, rect.height), changed: false };
+  }
+
+  beginMove(event) {
+    const element = model.selected;
+    if (!element) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    this.moveSession = { element, x: event.clientX, y: event.clientY, transform: element.style.transform || '', changed: false };
+    this.actions.classList.add('moving');
+    setStatus('正在移动元素 · 松开鼠标完成');
+  }
+
+  updateMove(event) {
+    const session = this.moveSession;
+    if (!session) return;
+    const dx = Math.round((event.clientX - session.x) / canvasZoom);
+    const dy = Math.round((event.clientY - session.y) / canvasZoom);
+    session.element.style.transform = `${session.transform} translate(${dx}px, ${dy}px)`.trim();
+    session.changed = Math.abs(dx) + Math.abs(dy) > 1;
+    model.setDirty(true);
+    this.updateOverlay();
+  }
+
+  endMove() {
+    const session = this.moveSession;
+    if (!session) return;
+    if (!session.changed) session.element.style.transform = session.transform;
+    else {
+      model.checkpoint('自由移动元素');
+      setStatus('已自由移动元素');
+      toast('元素位置已更新', 'success');
+    }
+    this.actions.classList.remove('moving');
+    this.moveSession = null;
   }
 
   updateResize(event) {
@@ -497,6 +736,92 @@ class CanvasController {
     if (!this.resizeSession) return;
     if (this.resizeSession.changed) model.checkpoint('调整尺寸');
     this.resizeSession = null;
+  }
+
+  beginBlockDrag(event, index, item) {
+    if (event.button !== 0 || event.target.closest('button') || !model.doc) return;
+    this.blockDragSession = {
+      pointerId: event.pointerId,
+      index,
+      item,
+      startX: event.clientX,
+      startY: event.clientY,
+      active: false,
+      node: null,
+      target: null,
+      position: 'after',
+      ghost: null,
+    };
+    item.setPointerCapture?.(event.pointerId);
+  }
+
+  updateBlockDrag(event) {
+    const session = this.blockDragSession;
+    if (!session || session.pointerId !== event.pointerId) return;
+    const distance = Math.hypot(event.clientX - session.startX, event.clientY - session.startY);
+    if (!session.active && distance < 6) return;
+    if (!session.active) {
+      session.active = true;
+      session.node = this.createNode(BLOCKS[session.index]?.[3]);
+      session.ghost = session.item.cloneNode(true);
+      session.ghost.className = 'block-drag-ghost';
+      session.ghost.querySelector('button')?.remove();
+      document.body.append(session.ghost);
+      session.item.classList.add('dragging');
+      document.body.classList.add('dragging-block');
+    }
+    event.preventDefault();
+    Object.assign(session.ghost.style, { left: `${event.clientX + 14}px`, top: `${event.clientY + 14}px` });
+    const iframeRect = this.iframe.getBoundingClientRect();
+    const inside = event.clientX >= iframeRect.left && event.clientX <= iframeRect.right && event.clientY >= iframeRect.top && event.clientY <= iframeRect.bottom;
+    if (!inside || !session.node) {
+      session.target = null;
+      this.dropMarker.hidden = true;
+      return;
+    }
+    const scaleX = iframeRect.width / Math.max(1, this.iframe.clientWidth);
+    const scaleY = iframeRect.height / Math.max(1, this.iframe.clientHeight);
+    const localX = (event.clientX - iframeRect.left) / Math.max(.01, scaleX);
+    const localY = (event.clientY - iframeRect.top) / Math.max(.01, scaleY);
+    let target = model.doc.elementFromPoint(localX, localY);
+    if (target?.tagName === 'HTML') target = model.doc.body;
+    if (!target || FORBIDDEN_SELECT.has(target.tagName)) {
+      session.target = null;
+      this.dropMarker.hidden = true;
+      return;
+    }
+    const rect = target.getBoundingClientRect();
+    const ratio = (localY - rect.top) / Math.max(1, rect.height);
+    let position = ratio < .28 ? 'before' : ratio > .72 ? 'after' : 'inside';
+    if (position === 'inside' && !this.canContain(target, session.node)) position = 'after';
+    session.target = target;
+    session.position = position;
+    const y = position === 'before' ? rect.top : position === 'after' ? rect.bottom : rect.top + rect.height / 2;
+    Object.assign(this.dropMarker.style, { left: `${rect.left}px`, top: `${y}px`, width: `${Math.max(28, rect.width)}px` });
+    this.dropMarker.hidden = false;
+  }
+
+  endBlockDrag(event, cancel = false) {
+    const session = this.blockDragSession;
+    if (!session || session.pointerId !== event.pointerId) return;
+    if (session.active) {
+      session.item.dataset.blockDragged = 'true';
+      window.setTimeout(() => { delete session.item.dataset.blockDragged; }, 0);
+      if (!cancel && session.target) {
+        const node = this.createNode(BLOCKS[session.index]?.[3]);
+        if (this.insertNode(node, session.target, session.position)) {
+          const name = BLOCKS[session.index]?.[1] || '组件';
+          setStatus(`已拖入${name}`);
+          toast(`已拖入${name}`, 'success');
+        }
+      }
+    }
+    if (session.item.hasPointerCapture?.(session.pointerId)) session.item.releasePointerCapture(session.pointerId);
+    session.item.classList.remove('dragging');
+    session.ghost?.remove();
+    document.body.classList.remove('dragging-block');
+    this.dropMarker.hidden = true;
+    this.blockDragSession = null;
   }
 
   dragOver(event) {
@@ -537,11 +862,24 @@ class CanvasController {
     return template.content.firstElementChild;
   }
 
-  canContain(element) { return Boolean(element && !VOID_TAGS.has(element.tagName) && !['TABLE', 'TBODY', 'THEAD', 'TFOOT', 'TR', 'SELECT'].includes(element.tagName)); }
+  canContain(element, node = null) {
+    if (!element || VOID_TAGS.has(element.tagName)) return false;
+    const childTag = node?.tagName;
+    if (FLOW_CONTAINERS.has(element.tagName)) return true;
+    if (PHRASING_CONTAINERS.has(element.tagName)) return Boolean(childTag && PHRASING_CONTENT.has(childTag));
+    if (['UL', 'OL'].includes(element.tagName)) return childTag === 'LI';
+    if (element.tagName === 'DL') return ['DT', 'DD'].includes(childTag);
+    if (element.tagName === 'TABLE') return ['CAPTION', 'COLGROUP', 'THEAD', 'TBODY', 'TFOOT', 'TR'].includes(childTag);
+    if (['THEAD', 'TBODY', 'TFOOT'].includes(element.tagName)) return childTag === 'TR';
+    if (element.tagName === 'TR') return ['TD', 'TH'].includes(childTag);
+    if (element.tagName === 'SELECT') return ['OPTION', 'OPTGROUP'].includes(childTag);
+    if (element.tagName === 'PICTURE') return ['SOURCE', 'IMG'].includes(childTag);
+    return false;
+  }
 
   insertNode(node, target = model.selected || model.doc?.body, position = 'inside') {
     if (!node || !target || node === target || node.contains(target)) return false;
-    if (position === 'inside' && this.canContain(target)) target.append(node);
+    if (position === 'inside' && this.canContain(target, node)) target.append(node);
     else if (position === 'before' && target.parentElement) target.before(node);
     else if (target.parentElement) target.after(node);
     else model.doc.body.append(node);
@@ -562,14 +900,44 @@ class CanvasController {
 
 const canvas = new CanvasController();
 
+function renderSelectionContext(element) {
+  const root = byId('selection-context');
+  const divider = byId('context-divider');
+  if (!root || !divider) return;
+  const commands = [];
+  if (element?.tagName === 'LI') {
+    commands.push(['list-before', '上方添加列表项', 'up'], ['list-after', '下方添加列表项', 'down']);
+  } else if (element?.closest?.('th,td')) {
+    commands.push(['row-after', '下方添加行', 'down'], ['col-after', '右侧添加列', 'external']);
+  }
+  root.innerHTML = commands.map(([command, label, icon]) => `<button class="tooltip" type="button" data-command="${command}" aria-label="${escapeText(label)}" data-tooltip="${escapeText(label)}">${iconMarkup(icon)}</button>`).join('');
+  divider.hidden = !commands.length;
+}
+
+function insertBlock(index) {
+  const block = BLOCKS[Number(index)];
+  if (!block || !model.doc) return false;
+  const node = canvas.createNode(block[3]);
+  const target = model.selected || model.doc.body;
+  const position = !model.selected || canvas.canContain(target, node) ? 'inside' : 'after';
+  const inserted = node && canvas.insertNode(node, target, position);
+  if (inserted) {
+    setStatus(`已插入${block[1]}`);
+    toast(`已插入${block[1]}`, 'success');
+  }
+  return Boolean(inserted);
+}
+
 function renderBlocks(filter = '') {
   const root = byId('block-list');
   const query = filter.trim().toLowerCase();
   root.replaceChildren();
   let previousGroup = '';
+  let matches = 0;
   BLOCKS.forEach((block, index) => {
     const [group, name, symbol, html] = block;
     if (query && !`${group} ${name} ${html}`.toLowerCase().includes(query)) return;
+    matches += 1;
     if (group !== previousGroup) {
       const heading = document.createElement('div');
       heading.className = 'block-group';
@@ -579,45 +947,101 @@ function renderBlocks(filter = '') {
     }
     const item = document.createElement('div');
     item.className = 'block-item';
-    item.draggable = true;
+    item.tabIndex = 0;
+    item.dataset.blockIndex = String(index);
     const rootTag = html.match(/^\s*<([a-z][a-z0-9-]*)/i)?.[1]?.toLowerCase() || 'html';
-    item.innerHTML = `<span class="block-symbol">${escapeText(symbol)}</span><span><strong>${escapeText(name)}</strong><small>${escapeText(rootTag)}</small></span>`;
-    item.addEventListener('dragstart', (event) => {
-      event.dataTransfer.effectAllowed = 'copy';
-      event.dataTransfer.setData('application/x-html-designer-block', String(index));
+    item.innerHTML = `<span class="block-symbol">${escapeText(symbol)}</span><span><strong>${escapeText(name)}</strong><small>${escapeText(rootTag)}</small></span><button class="block-insert" type="button" aria-label="插入${escapeText(name)}">+</button>`;
+    item.addEventListener('pointerdown', (event) => canvas.beginBlockDrag(event, index, item));
+    item.addEventListener('click', (event) => {
+      if (event.target.closest('button') || item.dataset.blockDragged) return;
+      insertBlock(index);
     });
-    item.addEventListener('dblclick', () => {
-      const node = canvas.createNode(html);
-      if (node) canvas.insertNode(node, model.selected || model.doc?.body, canvas.canContain(model.selected) ? 'inside' : 'after');
+    item.addEventListener('keydown', (event) => {
+      if (!['Enter', ' '].includes(event.key) || event.target.closest('button')) return;
+      event.preventDefault();
+      insertBlock(index);
     });
+    pick('.block-insert', item).addEventListener('click', (event) => { event.stopPropagation(); insertBlock(index); });
     root.append(item);
   });
+  if (!matches) root.innerHTML = emptyStateMarkup('search', '没有找到组件', '试试“卡片”“双栏”或“按钮”。');
+}
+
+const collapsedElements = new WeakSet();
+let treeDragElement = null;
+
+function clearTreeDropState() {
+  pickAll('.tree-row.drag-before, .tree-row.drag-inside, .tree-row.drag-after').forEach((row) => row.classList.remove('drag-before', 'drag-inside', 'drag-after'));
 }
 
 function renderTree() {
   const root = byId('element-tree');
   root.replaceChildren();
   if (!model.doc?.body) {
-    root.innerHTML = '<p class="empty-note">打开文档后显示页面结构</p>';
+    root.innerHTML = emptyStateMarkup('tree', '结构树等待文档', '打开或新建 HTML 后，页面层级会显示在这里。');
     return;
   }
   const appendElement = (element, depth) => {
     const row = document.createElement('div');
-    row.className = `tree-row${element === model.selected ? ' selected' : ''}`;
+    const collapsed = collapsedElements.has(element);
+    row.className = `tree-row${element === model.selected ? ' selected' : ''}${collapsed ? ' collapsed' : ''}`;
     row.style.paddingLeft = `${Math.min(14, depth) * 11}px`;
     row.draggable = element !== model.doc.body;
-    const toggle = document.createElement('button');
+    const toggle = document.createElement(element.children.length ? 'button' : 'span');
     toggle.className = 'tree-toggle';
-    toggle.type = 'button';
-    toggle.textContent = element.children.length ? '⌄' : '·';
+    if (element.children.length) toggle.type = 'button';
+    toggle.innerHTML = element.children.length ? iconMarkup('down') : '<span class="tree-dot"></span>';
+    if (element.children.length) toggle.setAttribute('aria-label', collapsed ? '展开' : '折叠');
     const label = document.createElement('span');
     label.className = 'tree-label';
     label.textContent = canvas.describe(element);
     row.append(toggle, label);
+    if (element.children.length) {
+      toggle.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (collapsedElements.has(element)) collapsedElements.delete(element); else collapsedElements.add(element);
+        renderTree();
+      });
+    }
     row.addEventListener('click', (event) => { if (!event.target.closest('.tree-toggle')) model.select(element); });
-    row.addEventListener('dragstart', (event) => event.dataTransfer.setData('application/x-html-designer-path', JSON.stringify(model.elementPath(element))));
+    row.addEventListener('dragstart', (event) => {
+      treeDragElement = element;
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('application/x-html-designer-path', JSON.stringify(model.elementPath(element)));
+      window.setTimeout(() => row.classList.add('dragging'), 0);
+    });
+    row.addEventListener('dragover', (event) => {
+      if (!treeDragElement || treeDragElement === element || treeDragElement.contains(element)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      clearTreeDropState();
+      const rect = row.getBoundingClientRect();
+      const ratio = (event.clientY - rect.top) / Math.max(1, rect.height);
+      const position = ratio < .28 ? 'before' : ratio > .72 || !canvas.canContain(element, treeDragElement) ? 'after' : 'inside';
+      row.classList.add(`drag-${position}`);
+      row.dataset.dropPosition = position;
+      event.dataTransfer.dropEffect = 'move';
+    });
+    row.addEventListener('dragleave', (event) => {
+      if (!row.contains(event.relatedTarget)) row.classList.remove('drag-before', 'drag-inside', 'drag-after');
+    });
+    row.addEventListener('drop', (event) => {
+      if (!treeDragElement) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const position = row.dataset.dropPosition || 'after';
+      const moved = canvas.insertNode(treeDragElement, element, position);
+      clearTreeDropState();
+      treeDragElement = null;
+      if (moved) setStatus(`已移动到 ${canvas.describe(element)} ${position === 'inside' ? '内部' : position === 'before' ? '之前' : '之后'}`);
+    });
+    row.addEventListener('dragend', () => {
+      row.classList.remove('dragging');
+      clearTreeDropState();
+      treeDragElement = null;
+    });
     root.append(row);
-    Array.from(element.children).filter((child) => !['SCRIPT', 'STYLE'].includes(child.tagName)).forEach((child) => appendElement(child, depth + 1));
+    if (!collapsed) Array.from(element.children).filter((child) => !['SCRIPT', 'STYLE'].includes(child.tagName)).forEach((child) => appendElement(child, depth + 1));
   };
   appendElement(model.doc.body, 0);
 }
@@ -635,6 +1059,81 @@ function renderPath() {
     button.onclick = () => model.select(element);
     root.append(button);
   });
+  byId('selection-utilities').hidden = !model.selected;
+}
+
+function cssSelectorPath(element = model.selected) {
+  if (!element) return '';
+  const parts = [];
+  let node = element;
+  while (node && node.nodeType === 1 && node !== model.doc.documentElement) {
+    let part = node.tagName.toLowerCase();
+    if (node.id) {
+      const safeId = window.CSS?.escape ? window.CSS.escape(node.id) : node.id.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
+      parts.unshift(`${part}#${safeId}`);
+      break;
+    }
+    const siblings = node.parentElement ? Array.from(node.parentElement.children).filter((item) => item.tagName === node.tagName) : [];
+    if (siblings.length > 1) part += `:nth-of-type(${siblings.indexOf(node) + 1})`;
+    parts.unshift(part);
+    node = node.parentElement;
+  }
+  return parts.join(' > ');
+}
+
+function updateSourceStats() {
+  const source = byId('source-editor')?.value || '';
+  const lines = source ? source.split(/\r?\n/).length : 0;
+  const target = byId('source-stats');
+  if (target) target.textContent = `${lines} 行 · ${source.length.toLocaleString()} 字符`;
+}
+
+function emptyStateMarkup(icon, title, copy) {
+  return `<div class="product-empty">${iconMarkup(icon, 'icon product-empty-icon')}<strong>${escapeText(title)}</strong><p>${escapeText(copy)}</p></div>`;
+}
+
+function renderSelectionSummary(element = model.selected) {
+  const root = byId('inspector-summary');
+  if (!root) return;
+  if (!element?.isConnected) {
+    root.hidden = true;
+    return;
+  }
+  const rect = element.getBoundingClientRect();
+  byId('summary-tag').textContent = element.tagName.length > 7 ? `${element.tagName.slice(0, 6)}…` : element.tagName;
+  byId('summary-name').textContent = canvas.describe(element);
+  byId('summary-selector').textContent = cssSelectorPath(element) || element.tagName.toLowerCase();
+  byId('summary-size').textContent = `${Math.round(rect.width)} × ${Math.round(rect.height)}`;
+  byId('summary-edit-button').disabled = VOID_TAGS.has(element.tagName);
+  root.hidden = false;
+}
+
+function edgeValue(computed, property) {
+  const value = computed.getPropertyValue(property).trim();
+  const number = Number.parseFloat(value);
+  return Number.isFinite(number) ? `${Math.round(number)}` : value || '0';
+}
+
+function boxModelDiagram(element, computed) {
+  const rect = element.getBoundingClientRect();
+  const section = document.createElement('section');
+  section.className = 'box-model-section';
+  const edges = (name) => ({
+    top: edgeValue(computed, `${name}-top${name === 'border' ? '-width' : ''}`),
+    right: edgeValue(computed, `${name}-right${name === 'border' ? '-width' : ''}`),
+    bottom: edgeValue(computed, `${name}-bottom${name === 'border' ? '-width' : ''}`),
+    left: edgeValue(computed, `${name}-left${name === 'border' ? '-width' : ''}`),
+  });
+  const margin = edges('margin');
+  const border = edges('border');
+  const padding = edges('padding');
+  const layer = (name, values, inner = '') => `<div class="box-layer ${name}-layer"><span class="box-caption">${name}</span><i class="edge top">${escapeText(values.top)}</i><i class="edge right">${escapeText(values.right)}</i><i class="edge bottom">${escapeText(values.bottom)}</i><i class="edge left">${escapeText(values.left)}</i>${inner}</div>`;
+  const numeric = (property) => Number.parseFloat(computed.getPropertyValue(property)) || 0;
+  const contentWidth = Math.max(0, rect.width - numeric('padding-left') - numeric('padding-right') - numeric('border-left-width') - numeric('border-right-width'));
+  const contentHeight = Math.max(0, rect.height - numeric('padding-top') - numeric('padding-bottom') - numeric('border-top-width') - numeric('border-bottom-width'));
+  const content = `<div class="content-layer"><strong>${Math.round(contentWidth)} × ${Math.round(contentHeight)}</strong><small>content</small></div>`;
+  section.innerHTML = `<header><h3>盒模型</h3><small>单位 px</small></header>${layer('margin', margin, layer('border', border, layer('padding', padding, content)))}`;
+  return section;
 }
 
 function group(title, rows) {
@@ -682,8 +1181,15 @@ function styleControl(element, label, property, value, options) {
 function renderInspectors() {
   const element = model.selected;
   const targets = ['style-inspector', 'attribute-inspector', 'behavior-inspector', 'markup-inspector'].map(byId);
+  renderSelectionSummary(element);
   if (!element) {
-    targets.forEach((target) => { target.innerHTML = '<p class="inspector-empty">在画布或结构树中选择一个元素</p>'; });
+    const emptyStates = [
+      ['sliders', '选择一个元素', '在画布或结构树中选择元素后，可以调整字体、布局、间距和外观。'],
+      ['tag', '暂无元素属性', '选择元素后，这里会显示标签、类名和 HTML 属性。'],
+      ['bolt', '暂无交互设置', '选择元素后，可以为它配置点击、悬停和表单动作。'],
+      ['braces', '暂无 HTML 内容', '选择元素后，可以精确编辑它的内部或外部 HTML。'],
+    ];
+    targets.forEach((target, index) => { target.innerHTML = emptyStateMarkup(...emptyStates[index]); });
     return;
   }
   renderStyleInspector(element);
@@ -696,7 +1202,8 @@ function renderStyleInspector(element) {
   const root = byId('style-inspector');
   const computed = element.ownerDocument.defaultView.getComputedStyle(element);
   root.replaceChildren(
-    group('Typography', [
+    boxModelDiagram(element, computed),
+    group('字体', [
       styleControl(element, '字体', 'font-family', element.style.fontFamily || computed.fontFamily, { values: ['', 'system-ui', 'Arial, sans-serif', 'Georgia, serif', 'ui-monospace, monospace'] }),
       styleControl(element, '字号', 'font-size', element.style.fontSize || computed.fontSize),
       styleControl(element, '字重', 'font-weight', element.style.fontWeight || computed.fontWeight, { values: ['', '300', '400', '500', '600', '700', '800', '900'] }),
@@ -704,7 +1211,7 @@ function renderStyleInspector(element) {
       styleControl(element, '对齐', 'text-align', element.style.textAlign || computed.textAlign, { values: ['', 'left', 'center', 'right', 'justify'] }),
       styleControl(element, '颜色', 'color', rgbToHex(computed.color), { type: 'color' }),
     ]),
-    group('Layout', [
+    group('布局', [
       styleControl(element, 'Display', 'display', element.style.display || computed.display, { values: ['', 'block', 'inline', 'inline-block', 'flex', 'grid', 'none'] }),
       styleControl(element, 'Position', 'position', element.style.position || computed.position, { values: ['', 'static', 'relative', 'absolute', 'fixed', 'sticky'] }),
       styleControl(element, '宽度', 'width', element.style.width || ''),
@@ -715,11 +1222,11 @@ function renderStyleInspector(element) {
       styleControl(element, '分布', 'justify-content', element.style.justifyContent || '', { values: ['', 'flex-start', 'center', 'flex-end', 'space-between', 'space-around'] }),
       styleControl(element, '对齐', 'align-items', element.style.alignItems || '', { values: ['', 'stretch', 'flex-start', 'center', 'flex-end'] }),
     ]),
-    group('Spacing', [
+    group('间距', [
       styleControl(element, 'Margin', 'margin', element.style.margin || ''),
       styleControl(element, 'Padding', 'padding', element.style.padding || ''),
     ]),
-    group('Surface', [
+    group('外观', [
       styleControl(element, '背景色', 'background-color', rgbToHex(computed.backgroundColor), { type: 'color' }),
       styleControl(element, '圆角', 'border-radius', element.style.borderRadius || computed.borderRadius),
       styleControl(element, '边框', 'border', element.style.border || ''),
@@ -741,11 +1248,11 @@ function rgbToHex(value) {
 function renderAttributeInspector(element) {
   const root = byId('attribute-inspector');
   root.replaceChildren();
-  const basics = group('Element', [
+  const basics = group('元素', [
     control('标签', element.tagName.toLowerCase(), (tag) => changeTag(element, tag)),
     control('ID', element.id, (value) => { element.id = value; model.checkpoint('修改 ID'); renderTree(); }),
   ]);
-  const classes = group('Classes', []);
+  const classes = group('类名', []);
   const chipList = document.createElement('div');
   chipList.className = 'chip-list';
   Array.from(element.classList).forEach((name) => {
@@ -762,7 +1269,7 @@ function renderAttributeInspector(element) {
     renderTree();
   }));
 
-  const attributes = group('Attributes', []);
+  const attributes = group('属性', []);
   Array.from(element.attributes).filter((attribute) => !['class', 'id', 'style', 'contenteditable', 'data-hd-editing'].includes(attribute.name)).forEach((attribute) => {
     const row = document.createElement('div');
     row.className = 'attribute-row';
@@ -815,7 +1322,7 @@ function changeTag(element, tag) {
 function renderBehaviorInspector(element) {
   const root = byId('behavior-inspector');
   root.replaceChildren();
-  const section = group('Event action', []);
+  const section = group('事件动作', []);
   const eventRow = control('事件', 'onclick', () => {}, { values: ['onclick', 'ondblclick', 'onmouseenter', 'onmouseleave', 'oninput', 'onchange', 'onsubmit', 'onfocus', 'onblur'] });
   const actionRow = control('动作', 'none', () => {}, { values: ['none', 'link', 'alert', 'toggle', 'toggle-class', 'custom'] });
   const valueRow = control('参数', '', () => {});
@@ -886,6 +1393,10 @@ function renderMarkupInspector(element) {
     model.select(replacement);
     model.checkpoint('编辑 outer HTML');
     renderTree();
+    renderInspectors();
+    canvas.updateOverlay();
+    setStatus('Outer HTML 已应用');
+    toast('元素 HTML 已更新', 'success');
   };
   outer.append(outerArea, outerActions);
   const inner = group('Inner HTML', []);
@@ -894,7 +1405,15 @@ function renderMarkupInspector(element) {
   const innerActions = document.createElement('div');
   innerActions.className = 'control-actions';
   innerActions.innerHTML = '<button type="button">应用 inner HTML</button>';
-  pick('button', innerActions).onclick = () => { element.innerHTML = innerArea.value; model.checkpoint('编辑 inner HTML'); renderTree(); };
+  pick('button', innerActions).onclick = () => {
+    element.innerHTML = innerArea.value;
+    model.checkpoint('编辑 inner HTML');
+    renderTree();
+    renderInspectors();
+    canvas.updateOverlay();
+    setStatus('Inner HTML 已应用');
+    toast('元素内容已更新', 'success');
+  };
   inner.append(innerArea, innerActions);
   root.append(outer, inner);
 }
@@ -933,7 +1452,7 @@ class FileController {
     model.fileHandle = handle;
     model.fileMtime = mtime;
     model.sourceText = html;
-    model.mode = 'visual';
+    activateVisualWorkspace();
     await canvas.load(html);
     model.setDirty(false);
     showStudio();
@@ -948,7 +1467,7 @@ class FileController {
     model.fileHandle = null;
     model.fileMtime = null;
     model.sourceText = EMPTY_DOCUMENT;
-    model.mode = 'visual';
+    activateVisualWorkspace();
     await canvas.load(EMPTY_DOCUMENT);
     model.setDirty(false);
     showStudio();
@@ -1017,11 +1536,27 @@ class AiController {
     this.abortController = null;
     this.reviews = [];
     this.pendingReview = null;
+    this.modelRequestId = 0;
     this.loadSettings();
+    this.loadModels({ selected: this.savedModel });
   }
 
-  open() { this.drawer.hidden = false; this.updateTarget(); byId('ai-input').focus(); }
-  close() { this.drawer.hidden = true; }
+  open() {
+    this.drawer.hidden = false;
+    byId('studio').classList.add('ai-open');
+    byId('ai-button').classList.add('active');
+    this.updateTarget();
+    requestAnimationFrame(() => { canvas.updateOverlay(); updateCanvasInfo(); });
+    byId('ai-input').focus();
+  }
+
+  close() {
+    this.drawer.hidden = true;
+    byId('studio').classList.remove('ai-open');
+    byId('ai-button').classList.remove('active');
+    requestAnimationFrame(() => { canvas.updateOverlay(); updateCanvasInfo(); });
+    byId('ai-button').focus();
+  }
 
   append(text, role = 'assistant') {
     const message = document.createElement('div');
@@ -1034,16 +1569,126 @@ class AiController {
 
   updateTarget() { byId('ai-target').textContent = model.selected ? `目标：${canvas.describe(model.selected)}` : '目标：整个页面'; }
 
+  setConnection(state, title, detail = '') {
+    const root = byId('ai-connection');
+    root.dataset.state = state;
+    pick('strong', root).textContent = title;
+    pick('small', root).textContent = detail;
+  }
+
+  async responseError(response) {
+    const text = await response.text();
+    const data = safeJson(text, {});
+    const detail = [data.error || `HTTP ${response.status}`, data.hint].filter(Boolean).join(' · ');
+    const error = new Error(detail);
+    error.code = data.code || `HTTP_${response.status}`;
+    error.attempts = data.attempts || [];
+    return error;
+  }
+
+  modelValue() {
+    return byId('ai-model').value === CUSTOM_MODEL_VALUE
+      ? byId('ai-model-custom').value.trim()
+      : byId('ai-model').value;
+  }
+
+  modelEndpoint(cli, refresh = false) {
+    const endpoint = byId('ai-endpoint').value.trim() || '/api/ai-design';
+    const url = new URL(endpoint, window.location.href);
+    url.pathname = /\/ai-design\/?$/.test(url.pathname)
+      ? url.pathname.replace(/\/ai-design\/?$/, '/ai-models')
+      : '/api/ai-models';
+    url.search = '';
+    url.searchParams.set('cli', cli);
+    if (refresh) url.searchParams.set('refresh', '1');
+    return url.toString();
+  }
+
+  renderModelOptions(models = [], selected = '') {
+    const select = byId('ai-model');
+    select.replaceChildren();
+    const addOption = (value, label, description = '') => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      if (description) option.title = description;
+      select.append(option);
+    };
+    addOption('', '使用 CLI 默认模型');
+    models.forEach(item => addOption(item.id, item.name || item.id, item.description || ''));
+    if (selected && !models.some(item => item.id === selected)) addOption(selected, `${selected}（当前选择）`);
+    addOption(CUSTOM_MODEL_VALUE, '手动输入模型 ID…');
+    select.value = selected || '';
+    if (!select.value && selected) select.value = CUSTOM_MODEL_VALUE;
+    this.updateCustomModelInput();
+  }
+
+  updateCustomModelInput() {
+    const custom = byId('ai-model').value === CUSTOM_MODEL_VALUE;
+    const input = byId('ai-model-custom');
+    input.hidden = !custom;
+    if (custom) {
+      byId('ai-model-status').dataset.state = 'warning';
+      byId('ai-model-status').textContent = '手动模型会直接传给当前 CLI，请确认名称可用';
+      input.focus();
+    }
+  }
+
+  async loadModels(options = {}) {
+    const cli = byId('ai-cli').value;
+    const selected = options.selected ?? this.modelValue();
+    const requestId = ++this.modelRequestId;
+    const select = byId('ai-model');
+    const refresh = byId('ai-refresh-models');
+    const status = byId('ai-model-status');
+    select.disabled = true;
+    refresh.disabled = true;
+    refresh.textContent = '读取中';
+    status.dataset.state = 'loading';
+    status.textContent = `正在读取 ${cli === 'claude' ? 'Claude Code CLI' : 'Codex CLI'} 模型…`;
+    try {
+      const response = await fetch(this.modelEndpoint(cli, Boolean(options.refresh)));
+      if (!response.ok) throw await this.responseError(response);
+      const data = await response.json();
+      if (requestId !== this.modelRequestId || cli !== byId('ai-cli').value) return;
+      this.renderModelOptions(data.models || [], selected);
+      status.dataset.state = data.complete === false ? 'warning' : 'ready';
+      status.textContent = data.complete === false
+        ? `已读取 ${data.models?.length || 0} 个模型候选，可手动输入其他模型 ID`
+        : `已从当前 CLI 读取 ${data.models?.length || 0} 个可用模型`;
+      status.title = [data.version, data.warning].filter(Boolean).join(' · ');
+    } catch (error) {
+      if (requestId !== this.modelRequestId) return;
+      this.renderModelOptions([], selected);
+      status.dataset.state = 'error';
+      status.textContent = `模型读取失败，可使用默认模型或手动输入：${error.message}`;
+      status.title = error.message;
+    } finally {
+      if (requestId === this.modelRequestId) {
+        select.disabled = false;
+        refresh.disabled = false;
+        refresh.textContent = '刷新';
+      }
+    }
+  }
+
   loadSettings() {
     const settings = safeJson(localStorage.getItem(STORAGE.ai), {});
     byId('ai-endpoint').value = settings.endpoint || '/api/ai-design';
     byId('ai-cli').value = settings.cli || 'codex';
-    byId('ai-model').value = settings.model || '';
+    this.savedModel = settings.model || '';
+    this.renderModelOptions([], this.savedModel);
+    byId('ai-fallback').checked = settings.fallback !== false;
   }
 
-  saveSettings() {
-    localStorage.setItem(STORAGE.ai, JSON.stringify({ endpoint: byId('ai-endpoint').value.trim() || '/api/ai-design', cli: byId('ai-cli').value, model: byId('ai-model').value.trim() }));
-    toast('AI 连接设置已保存', 'success');
+  saveSettings(notify = true) {
+    localStorage.setItem(STORAGE.ai, JSON.stringify({
+      endpoint: byId('ai-endpoint').value.trim() || '/api/ai-design',
+      cli: byId('ai-cli').value,
+      model: this.modelValue(),
+      fallback: byId('ai-fallback').checked,
+    }));
+    if (notify) toast('AI 连接设置已保存', 'success');
   }
 
   selectedContext() {
@@ -1053,13 +1698,40 @@ class AiController {
 
   async test() {
     this.saveSettings();
+    const button = byId('ai-test');
+    const requestedCli = byId('ai-cli').value;
+    this.setConnection('checking', '正在验证真实请求', '版本、授权和模型服务都会检查');
+    button.disabled = true;
+    button.textContent = '验证中…';
     try {
-      const response = await fetch(byId('ai-endpoint').value.trim(), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'test', cli: byId('ai-cli').value }) });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const response = await fetch(byId('ai-endpoint').value.trim() || '/api/ai-design', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'test',
+          cli: requestedCli,
+          model: this.modelValue(),
+          fallback: byId('ai-fallback').checked,
+        }),
+      });
+      if (!response.ok) throw await this.responseError(response);
       const data = await response.json();
-      this.append(data.output_text || '连接成功');
-      toast('AI 连接成功', 'success');
-    } catch (error) { this.append(`连接失败：${error.message}`, 'error'); }
+      const switched = data.cli && data.cli !== requestedCli;
+      if (data.cli) byId('ai-cli').value = data.cli;
+      if (switched) {
+        await this.loadModels({ selected: '' });
+        this.saveSettings(false);
+      }
+      this.setConnection(switched ? 'fallback' : 'ready', switched ? '备用链路已就绪' : '连接可用', `${data.output_text || data.cli} · ${data.latency_ms || 0}ms`);
+      this.append(data.output_text || '真实请求验证成功');
+      toast(switched ? '已切换到可用 CLI' : 'AI 连接验证成功', 'success');
+    } catch (error) {
+      this.setConnection('error', '连接不可用', error.message);
+      this.append(`连接失败：${error.message}`, 'error');
+    } finally {
+      button.disabled = false;
+      button.textContent = '测试连接';
+    }
   }
 
   async send(options = {}) {
@@ -1071,7 +1743,12 @@ class AiController {
     input.value = '';
     const progress = this.append('正在连接本机 CLI…');
     this.abortController?.abort();
-    this.abortController = new AbortController();
+    const controller = new AbortController();
+    this.abortController = controller;
+    const requestedCli = byId('ai-cli').value;
+    let activeCli = requestedCli;
+    let usedFallback = false;
+    this.setConnection('checking', `正在连接 ${requestedCli === 'claude' ? 'Claude Code CLI' : 'Codex CLI'}`, '请求已发送到本机服务');
     byId('ai-stop').hidden = false;
     const selected = this.selectedContext();
     const annotations = options.reviews || [{ type: 'chat', text: brief, target: selected?.target || 'page', path: selected?.path || null, selectedHtml: selected?.html || '' }];
@@ -1082,13 +1759,14 @@ class AiController {
       annotations,
       selectedElement: selected,
       locale: 'zh',
-      cli: byId('ai-cli').value,
-      model: byId('ai-model').value.trim(),
+      cli: requestedCli,
+      model: this.modelValue(),
+      fallback: byId('ai-fallback').checked,
       stream: true,
     };
     try {
-      const response = await fetch(byId('ai-endpoint').value.trim() || '/api/ai-design', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: this.abortController.signal });
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      const response = await fetch(byId('ai-endpoint').value.trim() || '/api/ai-design', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal });
+      if (!response.ok) throw await this.responseError(response);
       let finalHtml = '';
       if (response.body?.getReader) {
         const reader = response.body.getReader();
@@ -1103,11 +1781,24 @@ class AiController {
           for (const line of lines) {
             if (!line.trim()) continue;
             const event = safeJson(line, { type: 'stdout', text: line });
+            if (event.type === 'status' && event.text) progress.textContent = event.text;
+            if (event.type === 'start' && event.cli) activeCli = event.cli;
+            if (event.type === 'fallback') {
+              finalHtml = '';
+              usedFallback = true;
+              activeCli = event.to || activeCli;
+              progress.textContent = event.text || '当前 CLI 不可用，正在切换备用链路…';
+              this.setConnection('fallback', '正在切换备用链路', event.error || event.hint || '');
+            }
             if (event.type === 'html' && event.html) finalHtml = event.html;
-            if (event.type === 'done') finalHtml = event.html || extractHtml(event.output_text) || finalHtml;
+            if (event.type === 'done') {
+              finalHtml = event.html || extractHtml(event.output_text) || finalHtml;
+              activeCli = event.cli || activeCli;
+              usedFallback ||= Boolean(event.fallback);
+            }
             if (event.type === 'stdout' && event.text) progress.textContent = visibleProgress(event.text) || progress.textContent;
             if (event.type === 'stderr' && event.text) progress.textContent = visibleProgress(event.text) || progress.textContent;
-            if (event.type === 'error') throw new Error(event.error || 'AI 输出失败');
+            if (event.type === 'error') throw new Error([event.message || event.error || 'AI 输出失败', event.hint].filter(Boolean).join(' · '));
           }
         }
       } else {
@@ -1117,7 +1808,7 @@ class AiController {
       if (!finalHtml) throw new Error('没有从 CLI 输出中找到完整 HTML');
       const before = model.serializeDocument();
       model.sourceText = finalHtml;
-      model.mode = 'visual';
+      activateVisualWorkspace();
       await canvas.load(finalHtml, { preserveHistory: true });
       model.history = model.history.slice(0, model.cursor + 1);
       model.history.push({ html: finalHtml, path: null, label: 'AI Design' });
@@ -1127,13 +1818,21 @@ class AiController {
       model.scheduleAutosave();
       model.signal('history');
       progress.textContent = '页面已应用。可以继续在画布上精修。';
+      const cliChanged = activeCli && activeCli !== byId('ai-cli').value;
+      if (activeCli) byId('ai-cli').value = activeCli;
+      if (cliChanged) await this.loadModels({ selected: '' });
+      if (usedFallback) this.saveSettings(false);
+      this.setConnection(usedFallback ? 'fallback' : 'ready', usedFallback ? '已使用备用 CLI 完成' : 'AI Design 已连接', activeCli === 'claude' ? 'Claude Code CLI' : 'Codex CLI');
       renderTree();
     } catch (error) {
       progress.classList.add('error');
       progress.textContent = error.name === 'AbortError' ? '已停止本次任务。' : `AI Design 失败：${error.message}`;
+      this.setConnection(error.name === 'AbortError' ? 'idle' : 'error', error.name === 'AbortError' ? '任务已停止' : '连接失败', error.name === 'AbortError' ? '可以重新发送请求' : error.message);
     } finally {
-      this.abortController = null;
-      byId('ai-stop').hidden = true;
+      if (this.abortController === controller) {
+        this.abortController = null;
+        byId('ai-stop').hidden = true;
+      }
     }
   }
 
@@ -1203,14 +1902,18 @@ function renderSnippets() {
   const root = byId('snippet-list');
   const snippets = readSnippets();
   root.replaceChildren();
-  if (!snippets.length) root.innerHTML = '<p class="empty-note">保存常用元素后，会在这里出现。</p>';
+  if (!snippets.length) root.innerHTML = emptyStateMarkup('bookmark', '建立你的组件片段', '选择画布元素并保存，以便在其他位置快速复用。');
   snippets.forEach((snippet) => {
     const row = document.createElement('div');
     row.className = 'snippet-item';
     row.draggable = true;
     row.innerHTML = `<span>${escapeText(snippet.name)}</span><button type="button">×</button>`;
     row.ondragstart = (event) => event.dataTransfer.setData('application/x-html-designer-snippet', snippet.html);
-    row.ondblclick = () => canvas.insertNode(canvas.createNode(snippet.html), model.selected || model.doc?.body, canvas.canContain(model.selected) ? 'inside' : 'after');
+    row.ondblclick = () => {
+      const target = model.selected || model.doc?.body;
+      const node = canvas.createNode(snippet.html);
+      canvas.insertNode(node, target, !model.selected || canvas.canContain(target, node) ? 'inside' : 'after');
+    };
     pick('button', row).onclick = (event) => {
       event.stopPropagation();
       localStorage.setItem(STORAGE.snippets, JSON.stringify(snippets.filter((item) => item.id !== snippet.id)));
@@ -1237,6 +1940,11 @@ function updateDocumentState() {
   byId('document-status').classList.toggle('dirty', model.dirty);
   byId('undo-button').disabled = model.mode !== 'visual' || model.cursor <= 0;
   byId('redo-button').disabled = model.mode !== 'visual' || model.cursor >= model.history.length - 1;
+  ['duplicate-button', 'delete-button', 'parent-button', 'move-up-button', 'move-down-button'].forEach((id) => {
+    const button = byId(id);
+    if (button) button.disabled = model.mode !== 'visual' || !model.selected;
+  });
+  ['left-rail-button', 'right-rail-button'].forEach((id) => { byId(id).disabled = model.mode !== 'visual'; });
 }
 
 function showStudio() {
@@ -1250,42 +1958,79 @@ async function showWelcome() {
   byId('welcome').hidden = false;
 }
 
+function applyModeLayout(mode) {
+  const studio = byId('studio');
+  byId('canvas-shell').hidden = mode === 'source';
+  byId('source-shell').hidden = mode !== 'source';
+  studio.classList.toggle('source-mode', mode === 'source');
+  studio.classList.toggle('browse-mode', mode === 'browse');
+  pickAll('#mode-switch button').forEach((button) => {
+    const active = button.dataset.mode === mode;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+}
+
+function activateVisualWorkspace() {
+  const studio = byId('studio');
+  studio.classList.remove('preview-mode');
+  byId('leave-preview').hidden = true;
+  byId('preview-button').classList.remove('active');
+  canvas.exitBrowse();
+  model.mode = 'visual';
+  applyModeLayout('visual');
+}
+
+async function commitSourceChanges() {
+  model.sourceText = byId('source-editor').value;
+  const sourceChanged = model.sourceText !== model.sourceBaseline;
+  model.mode = 'visual';
+  await canvas.load(model.sourceText, { preserveHistory: true });
+  if (sourceChanged) {
+    model.history = model.history.slice(0, model.cursor + 1);
+    model.history.push({ html: model.sourceText, path: null, label: '源码编辑' });
+    model.cursor = model.history.length - 1;
+    model.setDirty(true);
+    model.scheduleAutosave();
+  }
+  renderTree();
+}
+
 async function setMode(mode) {
-  if (!model.doc || mode === model.mode) return;
+  if (!model.doc || !['visual', 'browse', 'source'].includes(mode) || mode === model.mode) return;
+  if (model.mode === 'source') await commitSourceChanges();
+  if (model.mode === 'browse') {
+    canvas.exitBrowse();
+    model.mode = 'visual';
+  }
+
   if (mode === 'source') {
     model.sourceText = model.serializeDocument();
     model.sourceBaseline = model.sourceText;
     byId('source-editor').value = model.sourceText;
+    updateSourceStats();
     model.mode = 'source';
-    byId('canvas-shell').hidden = true;
-    byId('source-shell').hidden = false;
-    byId('studio').classList.add('source-mode');
+    setStatus('源码模式 · 切回编辑或浏览时应用修改');
+  } else if (mode === 'browse') {
+    model.mode = 'browse';
+    canvas.enterBrowse(model.serializeDocument());
+    setStatus('浏览模式 · 页面链接、表单和脚本交互已启用');
   } else {
-    model.sourceText = byId('source-editor').value;
-    const sourceChanged = model.sourceText !== model.sourceBaseline;
     model.mode = 'visual';
-    await canvas.load(model.sourceText, { preserveHistory: true });
-    if (sourceChanged) {
-      model.history = model.history.slice(0, model.cursor + 1);
-      model.history.push({ html: model.sourceText, path: null, label: '源码编辑' });
-      model.cursor = model.history.length - 1;
-      model.setDirty(true);
-      model.scheduleAutosave();
-    }
-    byId('canvas-shell').hidden = false;
-    byId('source-shell').hidden = true;
-    byId('studio').classList.remove('source-mode');
-    renderTree();
+    canvas.preview = false;
+    canvas.updateOverlay();
+    setStatus('编辑模式 · 点击页面元素打开编辑菜单');
   }
-  pickAll('#mode-switch button').forEach((button) => button.classList.toggle('active', button.dataset.mode === mode));
+  applyModeLayout(mode);
   updateDocumentState();
 }
 
-function togglePreview(force) {
+async function togglePreview(force) {
   const next = typeof force === 'boolean' ? force : !byId('studio').classList.contains('preview-mode');
+  if (next && model.mode !== 'browse') await setMode('browse');
   byId('studio').classList.toggle('preview-mode', next);
   byId('leave-preview').hidden = !next;
-  canvas.setPreview(next);
+  byId('preview-button').classList.toggle('active', next);
 }
 
 function exitPreview() { togglePreview(false); }
@@ -1295,6 +2040,134 @@ function externalPreview() {
   const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
   window.open(url, '_blank', 'noopener');
   window.setTimeout(() => URL.revokeObjectURL(url), 15000);
+}
+
+let canvasZoom = 1;
+
+function updateCanvasInfo() {
+  const shell = byId('canvas-shell');
+  const iframe = shell?.classList.contains('browsing') ? byId('browse-canvas') : byId('design-canvas');
+  if (!shell || !iframe) return;
+  const device = shell.dataset.device || 'desktop';
+  const labels = { desktop: '桌面', tablet: '平板', mobile: '手机' };
+  const icon = pick('use', byId('canvas-info'));
+  if (icon) icon.setAttribute('href', `#i-${device === 'desktop' ? 'monitor' : device}`);
+  byId('canvas-device-label').textContent = labels[device];
+  byId('canvas-size-label').textContent = `${Math.round(iframe.clientWidth)} × ${Math.round(iframe.clientHeight)}`;
+}
+
+function setCanvasZoom(value, announce = true) {
+  canvasZoom = Math.min(1.5, Math.max(.5, Math.round(Number(value) * 10) / 10));
+  document.documentElement.style.setProperty('--canvas-scale', String(canvasZoom));
+  byId('zoom-value').textContent = `${Math.round(canvasZoom * 100)}%`;
+  if (announce) setStatus(`画布缩放 ${Math.round(canvasZoom * 100)}%`);
+  window.setTimeout(() => { canvas.updateOverlay(); updateCanvasInfo(); }, 190);
+}
+
+function fitCanvas() {
+  const device = byId('canvas-shell').dataset.device;
+  const naturalWidth = device === 'mobile' ? 390 : device === 'tablet' ? 820 : byId('workbench').clientWidth;
+  const available = Math.max(280, byId('workbench').clientWidth - 34);
+  setCanvasZoom(device === 'desktop' ? 1 : Math.min(1, available / naturalWidth));
+}
+
+function toggleRail(side) {
+  const studio = byId('studio');
+  const className = `${side}-collapsed`;
+  studio.classList.toggle(className);
+  const collapsed = studio.classList.contains(className);
+  byId(`${side}-rail-button`)?.classList.toggle('active', !collapsed);
+  setStatus(`${side === 'left' ? '组件面板' : '检查器'}已${collapsed ? '隐藏' : '显示'}`);
+  window.setTimeout(() => { canvas.updateOverlay(); updateCanvasInfo(); }, 210);
+}
+
+function openInsertPalette() {
+  if (!model.doc) {
+    toast('请先打开或新建一个文档', 'error');
+    return;
+  }
+  const root = byId('modal-root');
+  root.innerHTML = `<section class="modal-card command-card insert-card" role="dialog" aria-modal="true" aria-label="快速插入组件"><header class="insert-head"><span>${iconMarkup('boxes')}<strong>快速插入</strong></span><small>插入到当前选择附近</small></header><label class="command-search">${iconMarkup('search')}<input type="search" placeholder="搜索标题、卡片、双栏…" autocomplete="off"><kbd>Esc</kbd></label><div class="insert-list"></div></section>`;
+  const input = pick('input', root);
+  const list = pick('.insert-list', root);
+  let filtered = BLOCKS.map((block, index) => ({ block, index }));
+  let activeIndex = 0;
+  const execute = (item) => {
+    if (!item) return;
+    modal.close();
+    insertBlock(item.index);
+  };
+  const render = () => {
+    const query = input.value.trim().toLowerCase();
+    filtered = BLOCKS.map((block, index) => ({ block, index })).filter(({ block }) => `${block[0]} ${block[1]} ${block[3]}`.toLowerCase().includes(query));
+    activeIndex = Math.min(activeIndex, Math.max(0, filtered.length - 1));
+    list.innerHTML = filtered.length ? filtered.map(({ block, index }, position) => `<button class="insert-item${position === activeIndex ? ' active' : ''}" type="button" data-insert-index="${index}"><span class="block-symbol">${escapeText(block[2])}</span><span><strong>${escapeText(block[1])}</strong><small>${escapeText(block[0])} · ${escapeText(block[3].match(/^\s*<([a-z][a-z0-9-]*)/i)?.[1] || 'html')}</small></span><span class="insert-plus">+</span></button>`).join('') : emptyStateMarkup('search', '没有找到组件', '换一个关键词继续搜索。');
+    pickAll('[data-insert-index]', list).forEach((button) => { button.onclick = () => execute(filtered.find((item) => item.index === Number(button.dataset.insertIndex))); });
+  };
+  input.oninput = render;
+  input.onkeydown = (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); modal.close(); }
+    if (event.key === 'ArrowDown') { event.preventDefault(); activeIndex = (activeIndex + 1) % Math.max(1, filtered.length); render(); }
+    if (event.key === 'ArrowUp') { event.preventDefault(); activeIndex = (activeIndex - 1 + Math.max(1, filtered.length)) % Math.max(1, filtered.length); render(); }
+    if (event.key === 'Enter') { event.preventDefault(); execute(filtered[activeIndex]); }
+  };
+  root.onclick = (event) => { if (event.target === root) modal.close(); };
+  render();
+  input.focus();
+}
+
+function openCommandPalette() {
+  if (!byId('studio').hidden && pick('.command-card', byId('modal-root'))) {
+    modal.close();
+    return;
+  }
+  const commands = [
+    ['打开本地文件', 'folder-open', '⌘O', () => files.open()],
+    ['导入 HTML', 'upload', '', () => files.picker.click()],
+    ['新建设计', 'file-plus', '', () => files.newDocument()],
+    ['保存文档', 'save', '⌘S', () => files.save()],
+    ['快速插入组件', 'boxes', 'I', openInsertPalette],
+    ['切换到编辑', 'edit', '', () => setMode('visual')],
+    ['切换到浏览', 'eye', '', () => setMode('browse')],
+    ['切换到源码', 'code', '', () => setMode('source')],
+    ['撤销', 'undo', '⌘Z', () => model.travel(-1)],
+    ['重做', 'redo', '⇧⌘Z', () => model.travel(1)],
+    ['沉浸浏览', 'eye', 'P', () => togglePreview()],
+    ['在新标签页预览', 'external', '', externalPreview],
+    ['打开 AI Design', 'sparkles', '', () => ai.open()],
+    ['显示 / 隐藏组件面板', 'panel-left', '', () => toggleRail('left')],
+    ['显示 / 隐藏检查器', 'panel-right', '', () => toggleRail('right')],
+    ['切换主题', 'theme', '', toggleTheme],
+    ['查看快捷键', 'keyboard', '?', () => modal.shortcuts()],
+  ];
+  const root = byId('modal-root');
+  root.innerHTML = `<section class="modal-card command-card" role="dialog" aria-modal="true" aria-label="命令面板"><label class="command-search">${iconMarkup('search')}<input type="search" placeholder="搜索操作或输入命令…" autocomplete="off"><kbd>Esc</kbd></label><div class="command-list"></div></section>`;
+  const input = pick('input', root);
+  const list = pick('.command-list', root);
+  let filtered = commands;
+  let activeIndex = 0;
+  const execute = (command) => {
+    if (!command) return;
+    modal.close();
+    window.setTimeout(() => command[3](), 0);
+  };
+  const render = () => {
+    const query = input.value.trim().toLowerCase();
+    filtered = commands.filter((item) => item[0].toLowerCase().includes(query));
+    activeIndex = Math.min(activeIndex, Math.max(0, filtered.length - 1));
+    list.innerHTML = filtered.length ? filtered.map((item, index) => `<button class="command-item${index === activeIndex ? ' active' : ''}" type="button" data-command-index="${index}">${iconMarkup(item[1])}<span>${escapeText(item[0])}</span>${item[2] ? `<kbd>${escapeText(item[2])}</kbd>` : ''}</button>`).join('') : '<p class="command-empty">没有匹配的操作</p>';
+    pickAll('[data-command-index]', list).forEach((button) => { button.onclick = () => execute(filtered[Number(button.dataset.commandIndex)]); });
+  };
+  input.oninput = render;
+  input.onkeydown = (event) => {
+    if (event.key === 'Escape') { event.preventDefault(); modal.close(); }
+    if (event.key === 'ArrowDown') { event.preventDefault(); activeIndex = (activeIndex + 1) % Math.max(1, filtered.length); render(); }
+    if (event.key === 'ArrowUp') { event.preventDefault(); activeIndex = (activeIndex - 1 + Math.max(1, filtered.length)) % Math.max(1, filtered.length); render(); }
+    if (event.key === 'Enter') { event.preventDefault(); execute(filtered[activeIndex]); }
+  };
+  root.onclick = (event) => { if (event.target === root) modal.close(); };
+  render();
+  input.focus();
 }
 
 function bindTabs() {
@@ -1339,6 +2212,10 @@ function bindActions() {
   byId('duplicate-button').onclick = () => canvas.runCommand('duplicate');
   byId('delete-button').onclick = () => canvas.runCommand('remove');
   byId('parent-button').onclick = () => { const parent = model.selected?.parentElement; if (parent && parent !== model.doc.documentElement) model.select(parent); };
+  byId('move-up-button').onclick = () => canvas.runCommand('before');
+  byId('move-down-button').onclick = () => canvas.runCommand('after');
+  byId('left-rail-button').onclick = () => toggleRail('left');
+  byId('right-rail-button').onclick = () => toggleRail('right');
   byId('preview-button').onclick = () => togglePreview();
   byId('external-preview-button').onclick = externalPreview;
   byId('leave-preview').onclick = exitPreview;
@@ -1346,34 +2223,69 @@ function bindActions() {
   byId('ai-close').onclick = () => ai.close();
   byId('ai-save-settings').onclick = () => ai.saveSettings();
   byId('ai-test').onclick = () => ai.test();
+  byId('ai-cli').onchange = () => {
+    ai.setConnection('idle', '尚未验证', 'CLI 已切换，请重新测试连接');
+    ai.loadModels({ refresh: true, selected: '' });
+  };
+  byId('ai-model').onchange = () => ai.updateCustomModelInput();
+  byId('ai-refresh-models').onclick = () => ai.loadModels({ refresh: true });
   byId('ai-send').onclick = () => ai.send();
   byId('ai-stop').onclick = () => ai.stop();
   byId('review-add').onclick = () => ai.addReview();
   byId('review-cancel').onclick = () => { ai.pendingReview = null; byId('review-compose').hidden = true; };
   byId('review-send').onclick = () => ai.sendReviews();
   byId('block-search').oninput = (event) => renderBlocks(event.target.value);
+  byId('quick-insert-button').onclick = openInsertPalette;
+  byId('hud-insert-button').onclick = openInsertPalette;
   byId('save-snippet-button').onclick = saveSnippet;
+  byId('shortcut-button').onclick = () => modal.shortcuts();
+  byId('zoom-out-button').onclick = () => setCanvasZoom(canvasZoom - .1);
+  byId('zoom-in-button').onclick = () => setCanvasZoom(canvasZoom + .1);
+  byId('zoom-value').onclick = () => setCanvasZoom(1);
+  byId('zoom-fit-button').onclick = fitCanvas;
+  byId('copy-html-button').onclick = () => { if (model.selected) copyText(model.selected.outerHTML, '已复制元素 HTML'); };
+  byId('copy-selector-button').onclick = () => { if (model.selected) copyText(cssSelectorPath(), '已复制 CSS 选择器'); };
+  byId('summary-edit-button').onclick = () => canvas.runCommand('edit');
+  byId('summary-copy-button').onclick = () => { if (model.selected) copyText(model.selected.outerHTML, '已复制元素 HTML'); };
+  byId('summary-duplicate-button').onclick = () => canvas.runCommand('duplicate');
   pickAll('#mode-switch button').forEach((button) => { button.onclick = () => setMode(button.dataset.mode); });
   pickAll('.device-button').forEach((button) => {
     button.onclick = () => {
       pickAll('.device-button').forEach((item) => item.classList.toggle('active', item === button));
       byId('canvas-shell').dataset.device = button.dataset.device;
-      window.setTimeout(() => canvas.updateOverlay(), 190);
+      setStatus(`已切换为${button.dataset.device === 'desktop' ? '桌面' : button.dataset.device === 'tablet' ? '平板' : '手机'}画布`);
+      window.setTimeout(() => { canvas.updateOverlay(); updateCanvasInfo(); }, 190);
     };
   });
-  byId('source-editor').oninput = () => { model.sourceText = byId('source-editor').value; model.setDirty(true); model.scheduleAutosave(); };
+  byId('source-editor').oninput = () => { model.sourceText = byId('source-editor').value; model.setDirty(true); model.scheduleAutosave(); updateSourceStats(); };
 }
 
 function bindKeyboard() {
   document.addEventListener('keydown', (event) => {
     const command = event.metaKey || event.ctrlKey;
     const field = ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName) || event.target.isContentEditable;
+    if (event.key === 'Escape' && byId('modal-root').childElementCount && !pick('.command-card', byId('modal-root'))) { event.preventDefault(); modal.close(); return; }
+    if (event.key === 'Escape' && !byId('ai-drawer').hidden) { event.preventDefault(); ai.close(); return; }
+    if (command && event.key.toLowerCase() === 'k') { event.preventDefault(); openCommandPalette(); return; }
+    if (command && event.key.toLowerCase() === 'o') { event.preventDefault(); files.open(); return; }
     if (command && event.key.toLowerCase() === 's') { event.preventDefault(); files.save(); return; }
     if (field) return;
     if (command && event.key.toLowerCase() === 'z') { event.preventDefault(); model.travel(event.shiftKey ? 1 : -1); return; }
     if (command && event.key.toLowerCase() === 'd') { event.preventDefault(); canvas.runCommand('duplicate'); return; }
+    if (event.shiftKey && event.key === 'ArrowUp' && model.selected) { event.preventDefault(); canvas.runCommand('parent'); return; }
+    if (event.altKey && event.key === 'ArrowUp' && model.selected) { event.preventDefault(); canvas.runCommand('before'); return; }
+    if (event.altKey && event.key === 'ArrowDown' && model.selected) { event.preventDefault(); canvas.runCommand('after'); return; }
     if ((event.key === 'Delete' || event.key === 'Backspace') && model.selected) { event.preventDefault(); canvas.runCommand('remove'); return; }
     if (event.key === 'Escape') { if (byId('studio').classList.contains('preview-mode')) exitPreview(); else model.select(null); return; }
+    if (event.key === '?') { event.preventDefault(); modal.shortcuts(); return; }
+    if (event.key === '/' && !byId('studio').hidden) {
+      event.preventDefault();
+      if (byId('studio').classList.contains('left-collapsed')) toggleRail('left');
+      pick('[data-tabs="left"] [data-panel="library"]')?.click();
+      byId('block-search').focus();
+      return;
+    }
+    if (event.key.toLowerCase() === 'i' && !byId('studio').hidden) { event.preventDefault(); openInsertPalette(); return; }
     if (event.key.toLowerCase() === 'p') togglePreview();
     if (!byId('welcome').hidden && !event.metaKey && !event.ctrlKey && !event.altKey) {
       const key = event.key.toLowerCase();
@@ -1406,18 +2318,28 @@ function bindFileDrop() {
 
 model.addEventListener('selection', () => {
   renderPath();
+  if (model.selected && model.mode === 'visual') canvas.showSelectionMenu();
   canvas.updateOverlay();
   renderTree();
   renderInspectors();
   byId('save-snippet-button').disabled = !model.selected;
+  updateDocumentState();
+  if (model.selected?.isConnected) {
+    const rect = model.selected.getBoundingClientRect();
+    setStatus(`${canvas.describe(model.selected)} · ${Math.round(rect.width)} × ${Math.round(rect.height)}`);
+  } else setStatus('未选择元素');
   ai.updateTarget();
 });
 model.addEventListener('document', () => { renderTree(); renderInspectors(); });
 model.addEventListener('dirty', updateDocumentState);
-model.addEventListener('history', updateDocumentState);
+model.addEventListener('history', () => {
+  updateDocumentState();
+  if (model.history[model.cursor]?.label) setStatus(model.history[model.cursor].label);
+});
 
 function init() {
   applyTheme(localStorage.getItem(STORAGE.theme) || 'dark');
+  applyModeLayout('visual');
   bindTabs();
   bindActions();
   bindKeyboard();
@@ -1426,6 +2348,8 @@ function init() {
   renderTree();
   renderSnippets();
   renderInspectors();
+  updateSourceStats();
+  updateDocumentState();
   const draft = safeJson(localStorage.getItem(STORAGE.draft), null);
   if (draft?.html) {
     byId('action-restore').hidden = false;

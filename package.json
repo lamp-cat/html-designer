@@ -4,7 +4,8 @@
   "private": true,
   "description": "HTML Designer with a visual editor and AI Design-assisted local CLI workflow.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=18"

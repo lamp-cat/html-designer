@@ -30,73 +30,143 @@
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
   }
   </script>
-  <link rel="icon" href="logo.png">
-  <link rel="stylesheet" href="css/studio.css?v=1">
+  <link rel="icon" href="logo-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/studio.css?v=20260717e">
+  <link rel="stylesheet" href="css/studio-polish.css?v=20260717e">
 </head>
 <body>
+  <svg class="icon-sprite" aria-hidden="true">
+    <defs>
+      <symbol id="brand-cat" viewBox="0 0 128 128"><path d="M25 50 23 18l27 20c9-3 19-4 28 0l27-20-2 32c7 12 9 25 5 36-5 14-17 22-35 26M55 112c-18-4-30-12-35-26-4-11-2-24 5-36"/><path d="m48 61-13 12 13 12M80 61l13 12-13 12M70 55 57 91"/></symbol>
+      <symbol id="i-folder-open" viewBox="0 0 24 24"><path d="M3 7.5V5a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v2.5M3.5 9.5h18l-2.2 9a2 2 0 0 1-2 1.5H5.7a2 2 0 0 1-2-1.5l-2.2-7a1.5 1.5 0 0 1 2-2Z"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-5"/></symbol>
+      <symbol id="i-file-plus" viewBox="0 0 24 24"><path d="M6 2.5h8l4 4V21H6zM14 2.5v4h4M12 10v7m-3.5-3.5h7"/></symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="m12 2 1.2 4.3L17.5 8l-4.3 1.7L12 14l-1.7-4.3L6 8l4.3-1.7ZM19 14l.7 2.3L22 17l-2.3.7L19 20l-.7-2.3L16 17l2.3-.7Z"/></symbol>
+      <symbol id="i-theme" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-1-.1-1.5A7 7 0 0 1 12 3Z"/></symbol>
+      <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 11 9-8 9 8M5 9.5V21h14V9.5M9 21v-7h6v7"/></symbol>
+      <symbol id="i-layout" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></symbol>
+      <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 9-4 3 4 3m8-6 4 3-4 3m-2-9-4 12"/></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="m9 7-5 5 5 5M5 12h8a6 6 0 0 1 6 6"/></symbol>
+      <symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 7 5 5-5 5m4-5h-8a6 6 0 0 0-6 6"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6"/></symbol>
+      <symbol id="i-parent" viewBox="0 0 24 24"><path d="M5 20V8a4 4 0 0 1 4-4h10M14 9l5-5-5-5"/></symbol>
+      <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+      <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8m-4-4v4"/></symbol>
+      <symbol id="i-tablet" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M11 18.5h2"/></symbol>
+      <symbol id="i-mobile" viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18.5h2"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6m0-6-9 9M19 14v6H4V5h6"/></symbol>
+      <symbol id="i-panel-left" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></symbol>
+      <symbol id="i-panel-right" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5m10.2-3A8 8 0 0 0 5 7m-.2 8A8 8 0 0 0 19 17"/></symbol>
+      <symbol id="i-diff" viewBox="0 0 24 24"><path d="M8 3v18m8-18v18M4 7h8m-3-3 3 3-3 3m11 7h-8m3-3-3 3 3 3"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 20h16"/></symbol>
+      <symbol id="i-save" viewBox="0 0 24 24"><path d="M4 3h13l3 3v15H4zM8 3v6h8V3M8 21v-7h8v7"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+      <symbol id="i-boxes" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+      <symbol id="i-tree" viewBox="0 0 24 24"><path d="M6 3v18m0-14h6m-6 10h6m0-13v6m0 4v6m0-10h6m-6 10h6"/><circle cx="19" cy="10" r="1.5"/><circle cx="19" cy="20" r="1.5"/></symbol>
+      <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 6h5m4 0h7M4 12h10m4 0h2M4 18h3m4 0h9"/><circle cx="11" cy="6" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="9" cy="18" r="2"/></symbol>
+      <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3 12V4h8l10 10-7 7Z"/><circle cx="7.5" cy="8.5" r="1"/></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path d="m13 2-8 12h7l-1 8 8-12h-7z"/></symbol>
+      <symbol id="i-braces" viewBox="0 0 24 24"><path d="M9 3H7a2 2 0 0 0-2 2v4a2 2 0 0 1-2 2 2 2 0 0 1 2 2v6a2 2 0 0 0 2 2h2m6-18h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2 2 2 0 0 0-2 2v6a2 2 0 0 1-2 2h-2"/></symbol>
+      <symbol id="i-zoom-in" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M10.5 7v7m-3.5-3.5h7"/></symbol>
+      <symbol id="i-zoom-out" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5M7 10.5h7"/></symbol>
+      <symbol id="i-fit" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M8 21H3v-5m13 5h5v-5"/></symbol>
+      <symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M10 13h.01M14 13h.01M18 13h.01M7 16h10"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="m4 20 4.5-1 11-11-3.5-3.5-11 11ZM14.5 6l3.5 3.5"/></symbol>
+      <symbol id="i-message" viewBox="0 0 24 24"><path d="M4 4h16v13H8l-4 4z"/></symbol>
+      <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
+      <symbol id="i-command" viewBox="0 0 24 24"><path d="M9 6V4a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v16a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3Z"/></symbol>
+    </defs>
+  </svg>
   <section class="welcome" id="welcome">
+    <div class="welcome-grid" aria-hidden="true"></div>
     <header class="welcome-nav">
       <a class="wordmark" href="./" aria-label="HTML Designer 首页">
-        <img src="logo-inverted.png" alt="">
-        <span>HTML Designer</span>
+        <span class="brand-mark"><svg><use href="#brand-cat"></use></svg></span>
+        <span class="wordmark-copy"><strong>HTML Designer</strong><small>Visual HTML Studio</small></span>
       </a>
       <div class="welcome-nav-actions">
+        <span class="privacy-pill"><span></span>本地优先</span>
         <a href="HTML_DESIGNER_USER_GUIDE.md" target="_blank" rel="noopener">使用指南</a>
-        <button class="icon-button" id="welcome-theme" type="button" title="切换主题">◐</button>
+        <button class="icon-button tooltip" id="welcome-theme" type="button" aria-label="切换主题" data-tooltip="切换主题"><svg class="icon"><use href="#i-theme"></use></svg></button>
       </div>
     </header>
 
     <main class="welcome-main">
       <div class="welcome-copy">
-        <p class="eyebrow">LOCAL-FIRST · VISUAL HTML WORKSPACE</p>
-        <h1>把 HTML 放到画布上，<br><span>直接完成设计。</span></h1>
+        <div class="hero-brand" aria-hidden="true">
+          <span class="hero-brand-glow"></span>
+          <svg><use href="#brand-cat"></use></svg>
+          <span class="hero-code-pill">&lt;design /&gt;</span>
+        </div>
+        <p class="eyebrow"><span></span> LOCAL-FIRST · VISUAL HTML WORKSPACE</p>
+        <h1>把 HTML 放到画布上，<br><span>看见、选择、完成。</span></h1>
         <p class="welcome-lead">无需上传项目，也不绑定框架。打开单个 HTML 文件，在真实页面上修改文字、结构和样式，再保存回本地。</p>
+        <div class="feature-pills" aria-label="核心能力">
+          <span><svg class="icon"><use href="#i-layout"></use></svg>真实画布编辑</span>
+          <span><svg class="icon"><use href="#i-code"></use></svg>源码双向同步</span>
+          <span><svg class="icon"><use href="#i-sparkles"></use></svg>本机 AI 协作</span>
+        </div>
       </div>
 
-      <div class="launch-grid" aria-label="开始使用">
-        <button class="launch-card primary" id="action-open" type="button">
-          <kbd>A</kbd><span class="launch-icon">↗</span>
-          <strong>打开本地文件</strong>
-          <small>建立可写连接，保存回原文件</small>
-        </button>
-        <button class="launch-card" id="action-import" type="button">
-          <kbd>B</kbd><span class="launch-icon">⇣</span>
-          <strong>导入 HTML</strong>
-          <small>只读导入，完成后下载副本</small>
-        </button>
-        <button class="launch-card" id="action-new" type="button">
-          <kbd>C</kbd><span class="launch-icon">＋</span>
-          <strong>新建设计</strong>
-          <small>从响应式空白模板开始</small>
-        </button>
-        <button class="launch-card" id="action-ai" type="button">
-          <kbd>D</kbd><span class="launch-icon">✦</span>
-          <strong>AI Design</strong>
-          <small>用本机 Codex 或 Claude 生成页面</small>
-        </button>
+      <div class="launch-panel">
+        <div class="launch-panel-head"><div><span>START HERE</span><h2>开始一个设计</h2></div><small>按字母键快速启动</small></div>
+        <div class="launch-grid" aria-label="开始使用">
+          <button class="launch-card primary" id="action-open" type="button">
+            <span class="launch-icon"><svg class="icon"><use href="#i-folder-open"></use></svg></span><kbd>A</kbd>
+            <strong>打开本地文件</strong>
+            <small>建立可写连接，保存回原文件</small>
+            <span class="launch-arrow">↗</span>
+          </button>
+          <button class="launch-card" id="action-import" type="button">
+            <span class="launch-icon"><svg class="icon"><use href="#i-upload"></use></svg></span><kbd>B</kbd>
+            <strong>导入 HTML</strong>
+            <small>只读导入，完成后下载副本</small>
+            <span class="launch-arrow">→</span>
+          </button>
+          <button class="launch-card" id="action-new" type="button">
+            <span class="launch-icon"><svg class="icon"><use href="#i-file-plus"></use></svg></span><kbd>C</kbd>
+            <strong>新建设计</strong>
+            <small>从响应式空白模板开始</small>
+            <span class="launch-arrow">→</span>
+          </button>
+          <button class="launch-card ai-card" id="action-ai" type="button">
+            <span class="launch-icon"><svg class="icon"><use href="#i-sparkles"></use></svg></span><kbd>D</kbd>
+            <strong>AI Design</strong>
+            <small>用本机 Codex 或 Claude 生成页面</small>
+            <span class="launch-arrow">→</span>
+          </button>
+        </div>
+        <div class="launch-hint"><svg class="icon"><use href="#i-upload"></use></svg><span>也可以把 <strong>.html</strong> 文件拖到这里</span><kbd>⌘ O</kbd></div>
       </div>
 
       <button class="restore-card" id="action-restore" type="button" hidden>
-        <span>恢复上次未完成的编辑</span><small id="restore-meta"></small>
+        <span><svg class="icon"><use href="#i-refresh"></use></svg>恢复上次未完成的编辑</span><small id="restore-meta"></small>
       </button>
-      <p class="drop-note">也可以把 .html 文件拖到这个页面</p>
     </main>
 
     <footer class="welcome-footer">
-      <span>文件默认留在你的设备上</span>
-      <span>HTML Designer · v1</span>
+      <span>文件默认留在你的设备上 · 无需注册</span>
+      <span>HTML Designer · Designed for the open web</span>
     </footer>
   </section>
 
   <div class="studio" id="studio" hidden>
     <header class="topbar">
       <div class="topbar-brand">
-        <button class="brand-button" id="home-button" type="button" title="返回首页">
-          <img src="logo-inverted.png" alt=""><span>HTML Designer</span>
+        <button class="brand-button tooltip" id="home-button" type="button" aria-label="返回首页" data-tooltip="返回首页">
+          <span class="brand-mark compact"><svg><use href="#brand-cat"></use></svg></span><span>HTML Designer</span>
         </button>
-        <div class="mode-switch" id="mode-switch" role="tablist" aria-label="编辑模式">
-          <button class="active" type="button" data-mode="visual">画布</button>
-          <button type="button" data-mode="source">源码</button>
+        <div class="mode-switch" id="mode-switch" role="tablist" aria-label="页面模式">
+          <button class="active" type="button" data-mode="visual"><svg class="icon"><use href="#i-edit"></use></svg>编辑</button>
+          <button type="button" data-mode="browse"><svg class="icon"><use href="#i-eye"></use></svg>浏览</button>
+          <button type="button" data-mode="source"><svg class="icon"><use href="#i-code"></use></svg>源码</button>
         </div>
         <div class="document-state">
           <strong id="document-name">untitled.html</strong>
@@ -105,42 +175,52 @@
       </div>
 
       <div class="topbar-tools" aria-label="编辑工具">
-        <button type="button" id="undo-button" title="撤销">↶</button>
-        <button type="button" id="redo-button" title="重做">↷</button>
+        <button class="tooltip" type="button" id="left-rail-button" aria-label="显示或隐藏组件面板" data-tooltip="组件面板"><svg class="icon"><use href="#i-panel-left"></use></svg></button>
         <span class="tool-divider"></span>
-        <button type="button" id="duplicate-button" title="复制元素">⧉</button>
-        <button type="button" id="delete-button" title="删除元素">⌫</button>
-        <button type="button" id="parent-button" title="选择父元素">↰</button>
+        <button class="tooltip" type="button" id="undo-button" aria-label="撤销" data-tooltip="撤销 ⌘Z"><svg class="icon"><use href="#i-undo"></use></svg></button>
+        <button class="tooltip" type="button" id="redo-button" aria-label="重做" data-tooltip="重做 ⇧⌘Z"><svg class="icon"><use href="#i-redo"></use></svg></button>
         <span class="tool-divider"></span>
-        <button class="device-button active" type="button" data-device="desktop" title="桌面">▱</button>
-        <button class="device-button" type="button" data-device="tablet" title="平板">▯</button>
-        <button class="device-button" type="button" data-device="mobile" title="手机">▯</button>
+        <button class="tooltip" type="button" id="duplicate-button" aria-label="复制元素" data-tooltip="复制元素 ⌘D"><svg class="icon"><use href="#i-copy"></use></svg></button>
+        <button class="tooltip" type="button" id="delete-button" aria-label="删除元素" data-tooltip="删除元素"><svg class="icon"><use href="#i-trash"></use></svg></button>
+        <button class="tooltip" type="button" id="parent-button" aria-label="选择父元素" data-tooltip="选择父元素"><svg class="icon"><use href="#i-parent"></use></svg></button>
+        <button class="tooltip" type="button" id="move-up-button" aria-label="元素上移" data-tooltip="元素上移"><svg class="icon"><use href="#i-up"></use></svg></button>
+        <button class="tooltip" type="button" id="move-down-button" aria-label="元素下移" data-tooltip="元素下移"><svg class="icon"><use href="#i-down"></use></svg></button>
         <span class="tool-divider"></span>
-        <button type="button" id="preview-button" title="沉浸预览">◎</button>
-        <button type="button" id="external-preview-button" title="在新标签页运行页面">↗</button>
-        <button class="accent-tool" type="button" id="ai-button">✦ AI Design</button>
+        <button class="device-button tooltip active" type="button" data-device="desktop" aria-label="桌面画布" data-tooltip="桌面"><svg class="icon"><use href="#i-monitor"></use></svg></button>
+        <button class="device-button tooltip" type="button" data-device="tablet" aria-label="平板画布" data-tooltip="平板"><svg class="icon"><use href="#i-tablet"></use></svg></button>
+        <button class="device-button tooltip" type="button" data-device="mobile" aria-label="手机画布" data-tooltip="手机"><svg class="icon"><use href="#i-mobile"></use></svg></button>
+        <span class="tool-divider"></span>
+        <button class="tooltip" type="button" id="preview-button" aria-label="沉浸浏览" data-tooltip="沉浸浏览 P"><svg class="icon"><use href="#i-eye"></use></svg></button>
+        <button class="tooltip" type="button" id="external-preview-button" aria-label="新标签页预览" data-tooltip="新标签页预览"><svg class="icon"><use href="#i-external"></use></svg></button>
+        <button class="accent-tool" type="button" id="ai-button"><svg class="icon"><use href="#i-sparkles"></use></svg>AI Design</button>
+        <button class="tooltip" type="button" id="right-rail-button" aria-label="显示或隐藏检查器" data-tooltip="检查器"><svg class="icon"><use href="#i-panel-right"></use></svg></button>
       </div>
 
       <div class="topbar-file">
-        <button type="button" id="open-button">打开</button>
-        <button type="button" id="refresh-button" title="重新读取磁盘文件" disabled>刷新</button>
-        <button type="button" id="diff-button" title="比较磁盘与编辑器" disabled>对比</button>
-        <button type="button" id="import-button">导入</button>
-        <button type="button" id="export-button">导出</button>
-        <button class="save-button" type="button" id="save-button">保存</button>
-        <button class="icon-button" type="button" id="theme-button" title="切换主题">◐</button>
+        <button class="file-tool tooltip" type="button" id="open-button" data-tooltip="打开本地文件"><svg class="icon"><use href="#i-folder-open"></use></svg><span>打开</span></button>
+        <button class="file-tool tooltip" type="button" id="refresh-button" data-tooltip="重新读取磁盘文件" disabled><svg class="icon"><use href="#i-refresh"></use></svg></button>
+        <button class="file-tool tooltip" type="button" id="diff-button" data-tooltip="比较磁盘与编辑器" disabled><svg class="icon"><use href="#i-diff"></use></svg></button>
+        <button class="file-tool tooltip" type="button" id="import-button" data-tooltip="导入 HTML"><svg class="icon"><use href="#i-upload"></use></svg></button>
+        <button class="file-tool tooltip" type="button" id="export-button" data-tooltip="导出副本"><svg class="icon"><use href="#i-download"></use></svg></button>
+        <button class="save-button" type="button" id="save-button"><svg class="icon"><use href="#i-save"></use></svg>保存</button>
+        <button class="icon-button tooltip" type="button" id="shortcut-button" aria-label="快捷键" data-tooltip="快捷键 ?"><svg class="icon"><use href="#i-keyboard"></use></svg></button>
+        <button class="icon-button tooltip" type="button" id="theme-button" aria-label="切换主题" data-tooltip="切换主题"><svg class="icon"><use href="#i-theme"></use></svg></button>
       </div>
     </header>
 
     <main class="studio-grid">
       <aside class="rail left-rail">
         <nav class="rail-tabs" data-tabs="left">
-          <button class="active" type="button" data-panel="library">组件</button>
-          <button type="button" data-panel="outline">结构</button>
-          <button type="button" data-panel="snippets">片段</button>
+          <button class="active" type="button" data-panel="library"><svg class="icon"><use href="#i-boxes"></use></svg><span>组件</span></button>
+          <button type="button" data-panel="outline"><svg class="icon"><use href="#i-tree"></use></svg><span>结构</span></button>
+          <button type="button" data-panel="snippets"><svg class="icon"><use href="#i-bookmark"></use></svg><span>片段</span></button>
         </nav>
         <section class="rail-panel active" data-panel="library">
-          <label class="search-box"><span>⌕</span><input id="block-search" type="search" placeholder="搜索组件"></label>
+          <label class="search-box"><svg class="icon"><use href="#i-search"></use></svg><input id="block-search" type="search" placeholder="搜索 24 个组件"><kbd>/</kbd></label>
+          <div class="library-intro">
+            <span><strong>组件库</strong><small>单击新增，按住拖入画布</small></span>
+            <button id="quick-insert-button" type="button"><svg class="icon"><use href="#i-file-plus"></use></svg>快速插入 <kbd>I</kbd></button>
+          </div>
           <div class="block-list" id="block-list"></div>
         </section>
         <section class="rail-panel" data-panel="outline">
@@ -153,18 +233,43 @@
       </aside>
 
       <section class="workbench" id="workbench">
+        <div class="canvas-info" id="canvas-info" aria-live="polite">
+          <svg class="icon"><use href="#i-monitor"></use></svg>
+          <span id="canvas-device-label">桌面</span>
+          <strong id="canvas-size-label">— × —</strong>
+        </div>
+        <div class="canvas-hud" aria-label="画布缩放">
+          <button class="tooltip" id="zoom-out-button" type="button" data-tooltip="缩小"><svg class="icon"><use href="#i-zoom-out"></use></svg></button>
+          <button class="zoom-value" id="zoom-value" type="button" title="恢复 100%">100%</button>
+          <button class="tooltip" id="zoom-in-button" type="button" data-tooltip="放大"><svg class="icon"><use href="#i-zoom-in"></use></svg></button>
+          <span></span>
+          <button class="tooltip" id="zoom-fit-button" type="button" data-tooltip="适应窗口"><svg class="icon"><use href="#i-fit"></use></svg></button>
+          <span></span>
+          <button class="tooltip" id="hud-insert-button" type="button" data-tooltip="快速插入"><svg class="icon"><use href="#i-boxes"></use></svg></button>
+        </div>
         <div class="canvas-shell" id="canvas-shell" data-device="desktop">
           <iframe id="design-canvas" title="HTML 设计画布" sandbox="allow-same-origin allow-forms"></iframe>
+          <iframe id="browse-canvas" title="HTML 浏览画布" sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-popups allow-downloads" hidden></iframe>
           <div class="selection-layer" id="selection-layer" hidden>
             <div class="selection-frame" id="selection-frame"></div>
             <div class="selection-label" id="selection-label"></div>
+            <div class="selection-size" id="selection-size"></div>
             <div class="selection-actions" id="selection-actions">
-              <button type="button" data-command="edit">编辑文字</button>
-              <button type="button" data-command="before">上移</button>
-              <button type="button" data-command="after">下移</button>
-              <button type="button" data-command="review">批注</button>
-              <button type="button" data-command="duplicate">复制</button>
-              <button type="button" data-command="remove">删除</button>
+              <span class="selection-menu-summary"><small>正在编辑</small><strong id="selection-menu-title">元素</strong></span>
+              <span class="selection-divider"></span>
+              <button class="selection-grip tooltip" type="button" aria-label="拖动元素" data-tooltip="拖动元素"><svg class="icon"><use href="#i-grip"></use></svg></button>
+              <button class="tooltip" type="button" data-command="edit" aria-label="编辑文字" data-tooltip="编辑文字"><svg class="icon"><use href="#i-edit"></use></svg></button>
+              <button class="tooltip" type="button" data-command="insert" aria-label="在此插入" data-tooltip="在此插入"><svg class="icon"><use href="#i-boxes"></use></svg></button>
+              <button class="tooltip" type="button" data-command="before" aria-label="上移" data-tooltip="上移"><svg class="icon"><use href="#i-up"></use></svg></button>
+              <button class="tooltip" type="button" data-command="after" aria-label="下移" data-tooltip="下移"><svg class="icon"><use href="#i-down"></use></svg></button>
+              <button class="tooltip" type="button" data-command="parent" aria-label="选择父元素" data-tooltip="选择父元素"><svg class="icon"><use href="#i-parent"></use></svg></button>
+              <span class="selection-divider context-divider" id="context-divider" hidden></span>
+              <span class="selection-context" id="selection-context"></span>
+              <span class="selection-divider"></span>
+              <button class="tooltip" type="button" data-command="review" aria-label="添加批注" data-tooltip="添加批注"><svg class="icon"><use href="#i-message"></use></svg></button>
+              <button class="tooltip" type="button" data-command="duplicate" aria-label="复制" data-tooltip="复制 ⌘D"><svg class="icon"><use href="#i-copy"></use></svg></button>
+              <button class="tooltip danger-action" type="button" data-command="remove" aria-label="删除" data-tooltip="删除"><svg class="icon"><use href="#i-trash"></use></svg></button>
+              <button class="tooltip" type="button" data-command="deselect" aria-label="关闭编辑菜单" data-tooltip="关闭">×</button>
             </div>
             <button class="resize-knob resize-x" type="button" data-resize="x" aria-label="调整宽度"></button>
             <button class="resize-knob resize-y" type="button" data-resize="y" aria-label="调整高度"></button>
@@ -174,18 +279,30 @@
           <div class="drop-marker" id="drop-marker" hidden></div>
         </div>
         <div class="source-shell" id="source-shell" hidden>
-          <div class="source-head"><span>HTML SOURCE</span><small>切回画布时会重新解析文档</small></div>
-          <textarea id="source-editor" spellcheck="false" aria-label="HTML 源码"></textarea>
+          <div class="source-head"><span><svg class="icon"><use href="#i-code"></use></svg>HTML SOURCE</span><div><small id="source-stats">0 行 · 0 字符</small><small>切回画布时会重新解析文档</small></div></div>
+          <textarea id="source-editor" wrap="off" spellcheck="false" aria-label="HTML 源码"></textarea>
         </div>
       </section>
 
       <aside class="rail right-rail">
         <nav class="rail-tabs" data-tabs="right">
-          <button class="active" type="button" data-panel="style">样式</button>
-          <button type="button" data-panel="attributes">属性</button>
-          <button type="button" data-panel="behavior">交互</button>
-          <button type="button" data-panel="markup">HTML</button>
+          <button class="active" type="button" data-panel="style"><svg class="icon"><use href="#i-sliders"></use></svg><span>样式</span></button>
+          <button type="button" data-panel="attributes"><svg class="icon"><use href="#i-tag"></use></svg><span>属性</span></button>
+          <button type="button" data-panel="behavior"><svg class="icon"><use href="#i-bolt"></use></svg><span>交互</span></button>
+          <button type="button" data-panel="markup"><svg class="icon"><use href="#i-braces"></use></svg><span>HTML</span></button>
         </nav>
+        <section class="inspector-summary" id="inspector-summary" hidden>
+          <div class="summary-main">
+            <span class="summary-tag" id="summary-tag">DIV</span>
+            <span class="summary-copy"><strong id="summary-name">未选择元素</strong><small id="summary-selector">—</small></span>
+            <span class="summary-size" id="summary-size">— × —</span>
+          </div>
+          <div class="summary-actions">
+            <button type="button" id="summary-edit-button"><svg class="icon"><use href="#i-edit"></use></svg>编辑</button>
+            <button type="button" id="summary-copy-button"><svg class="icon"><use href="#i-copy"></use></svg>复制 HTML</button>
+            <button type="button" id="summary-duplicate-button"><svg class="icon"><use href="#i-file-plus"></use></svg>创建副本</button>
+          </div>
+        </section>
         <section class="rail-panel active inspector" data-panel="style" id="style-inspector"></section>
         <section class="rail-panel inspector" data-panel="attributes" id="attribute-inspector"></section>
         <section class="rail-panel inspector" data-panel="behavior" id="behavior-inspector"></section>
@@ -195,7 +312,13 @@
 
     <footer class="statusbar">
       <div class="crumbs" id="selection-path"></div>
-      <div class="statusbar-meta"><span id="status-text">准备就绪</span><span id="autosave-text">尚未自动保存</span></div>
+      <div class="statusbar-meta">
+        <div class="selection-utilities" id="selection-utilities" hidden>
+          <button type="button" id="copy-html-button">复制 HTML</button>
+          <button type="button" id="copy-selector-button">复制选择器</button>
+        </div>
+        <span id="status-text"><i></i>准备就绪</span><span id="autosave-text">尚未自动保存</span>
+      </div>
     </footer>
   </div>
 
@@ -204,7 +327,7 @@
   <aside class="ai-drawer" id="ai-drawer" hidden>
     <header>
       <div><p>LOCAL AGENT</p><h2>AI Design</h2></div>
-      <button class="icon-button" type="button" id="ai-close">×</button>
+      <button class="icon-button" type="button" id="ai-close" aria-label="关闭">×</button>
     </header>
     <div class="ai-target" id="ai-target">修改整个页面</div>
     <div class="ai-log" id="ai-log" aria-live="polite"></div>
@@ -227,9 +350,11 @@
     </div>
     <details class="ai-settings">
       <summary>连接设置</summary>
+      <div class="ai-connection" id="ai-connection" data-state="idle"><span></span><strong>尚未验证</strong><small>测试会发送一次最小真实请求</small></div>
       <label>Endpoint<input id="ai-endpoint" type="text" value="/api/ai-design"></label>
       <label>CLI<select id="ai-cli"><option value="codex">Codex CLI</option><option value="claude">Claude Code CLI</option></select></label>
-      <label>模型（可选）<input id="ai-model" type="text" placeholder="使用 CLI 默认模型"></label>
+      <label class="ai-model-field"><span>模型</span><div class="ai-model-picker"><select id="ai-model" aria-label="模型"><option value="">使用 CLI 默认模型</option><option value="__custom__">手动输入模型 ID…</option></select><button type="button" id="ai-refresh-models" title="刷新当前 CLI 支持的模型">刷新</button></div><input id="ai-model-custom" type="text" placeholder="输入模型 ID" hidden><small id="ai-model-status" aria-live="polite">选择 CLI 后自动读取支持的模型</small></label>
+      <label class="ai-fallback"><input id="ai-fallback" type="checkbox" checked><span><strong>自动切换可用 CLI</strong><small>当前 CLI 失败时继续使用本机另一条链路</small></span></label>
       <div><button type="button" id="ai-save-settings">保存设置</button><button type="button" id="ai-test">测试连接</button></div>
     </details>
   </aside>
@@ -238,6 +363,6 @@
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
   <div class="modal-root" id="modal-root"></div>
 
-  <script type="module" src="js/studio-app.js?v=1"></script>
+  <script type="module" src="js/studio-app.js?v=20260717e"></script>
 </body>
 </html>
