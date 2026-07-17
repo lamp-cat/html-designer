@@ -68,9 +68,12 @@ HTML_DESIGNER_MODEL_CATALOG_TTL_MS=300000
 
 ```text
 index.html              应用入口与完整工作台结构
+guide.html              可搜索、可导航的使用指南页面
 css/studio.css          主题、布局、画布与面板样式
 css/studio-polish.css   品牌、图标、动效和增强交互样式
+css/guide.css           使用指南的阅读布局与响应式样式
 js/studio-app.js        状态、画布、文件、检查器、组件库和 AI 客户端
+js/guide.js             Markdown 渲染、目录、搜索与指南交互
 logo-mark.svg           HTML Designer 矢量品牌标志与站点图标
 server.js               静态服务器与本机 CLI 桥接
 HTML_DESIGNER_USER_GUIDE.md

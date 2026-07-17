@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>使用指南 — HTML Designer</title>
+  <meta name="description" content="HTML Designer 完整使用指南：文件、可视化编辑、浏览模式、源码、组件、AI Design 与快捷键。">
+  <meta name="theme-color" content="#f6f4ef">
+  <script>
+    try { document.documentElement.dataset.theme = localStorage.getItem('html-designer-guide-theme') || 'light'; } catch (_) {}
+  </script>
+  <link rel="icon" href="logo-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/guide.css?v=20260717a">
+</head>
+<body>
+  <header class="guide-topbar">
+    <a class="guide-brand" href="./" aria-label="返回 HTML Designer 首页">
+      <span class="guide-brand-mark"><img src="logo-mark.svg" alt=""></span>
+      <span><strong>HTML Designer</strong><small>使用指南</small></span>
+    </a>
+    <nav class="guide-actions" aria-label="指南操作">
+      <a class="guide-home-link" href="./">打开设计器 <span aria-hidden="true">↗</span></a>
+      <a class="guide-download-link" href="HTML_DESIGNER_USER_GUIDE.md" download>下载 Markdown</a>
+      <button class="guide-icon-button" id="guide-theme" type="button" aria-label="切换指南主题" title="切换主题">◐</button>
+      <button class="guide-menu-button" id="guide-menu" type="button" aria-label="打开指南目录" aria-expanded="false">目录</button>
+    </nav>
+  </header>
+
+  <div class="guide-shell">
+    <aside class="guide-sidebar" id="guide-sidebar" aria-label="使用指南目录">
+      <div class="guide-sidebar-head">
+        <label class="guide-search">
+          <span aria-hidden="true">⌕</span>
+          <input id="guide-search" type="search" placeholder="搜索章节" autocomplete="off">
+          <kbd>⌘ K</kbd>
+        </label>
+        <div class="guide-sidebar-label"><span>CONTENTS</span><strong id="guide-section-count">—</strong></div>
+      </div>
+      <nav class="guide-toc" id="guide-toc" aria-label="章节导航">
+        <div class="guide-toc-loading"><span></span><span></span><span></span><span></span><span></span></div>
+      </nav>
+      <footer class="guide-sidebar-foot">
+        <span class="guide-status-dot"></span>
+        <span>内容来自项目内 Markdown</span>
+      </footer>
+    </aside>
+
+    <main class="guide-main">
+      <section class="guide-hero">
+        <p class="guide-eyebrow"><span></span> PRODUCT DOCUMENTATION</p>
+        <h1>从打开 HTML，<br><em>到完成设计。</em></h1>
+        <p class="guide-intro">文件操作、画布编辑、页面浏览、源码修改和本机 AI 协作，都集中在这一份指南里。</p>
+        <div class="guide-meta" aria-label="指南信息">
+          <span><strong id="guide-chapter-total">21</strong> 个章节</span>
+          <span><strong id="guide-reading-time">—</strong> 分钟阅读</span>
+          <span>最后更新 <strong>2026.07</strong></span>
+        </div>
+      </section>
+
+      <article class="guide-article" id="guide-content" aria-live="polite">
+        <div class="guide-loading" role="status">
+          <span class="guide-loader"></span>
+          <strong>正在载入使用指南</strong>
+          <small>从项目文档生成阅读页面…</small>
+        </div>
+      </article>
+
+      <footer class="guide-page-foot">
+        <div><strong>HTML Designer</strong><span>本地优先的可视化 HTML 工作台</span></div>
+        <a href="./">返回设计器</a>
+      </footer>
+    </main>
+  </div>
+
+  <button class="guide-backtop" id="guide-backtop" type="button" aria-label="返回顶部">↑</button>
+  <div class="guide-sidebar-scrim" id="guide-sidebar-scrim" hidden></div>
+  <div class="guide-toast" id="guide-toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/guide.js?v=20260717a"></script>
+</body>
+</html>
