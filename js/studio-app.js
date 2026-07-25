@@ -4,6 +4,7 @@ const pickAll = (selector, root = document) => Array.from(root.querySelectorAll(
 
 const STORAGE = Object.freeze({
   draft: 'html-designer.v1.draft',
+  draftFallback: 'html-designer.v2.drafts',
   snippets: 'html-designer.v1.snippets',
   theme: 'html-designer.v1.theme',
   ai: 'html-designer.v1.ai',
@@ -128,7 +129,7 @@ const BLOCKS = [
 ];
 
 const VOID_TAGS = new Set(['AREA', 'BASE', 'BR', 'COL', 'EMBED', 'HR', 'IMG', 'INPUT', 'LINK', 'META', 'PARAM', 'SOURCE', 'TRACK', 'WBR']);
-const FORBIDDEN_SELECT = new Set(['HTML', 'HEAD', 'META', 'LINK', 'STYLE', 'SCRIPT', 'TITLE', 'BASE']);
+const FORBIDDEN_SELECT = new Set(['HTML', 'HEAD', 'META', 'LINK', 'STYLE', 'SCRIPT', 'TEMPLATE', 'TITLE', 'BASE']);
 const FLOW_CONTAINERS = new Set(['BODY', 'MAIN', 'SECTION', 'ARTICLE', 'ASIDE', 'NAV', 'HEADER', 'FOOTER', 'DIV', 'FORM', 'FIGURE', 'FIGCAPTION', 'BLOCKQUOTE', 'DETAILS', 'DIALOG', 'FIELDSET', 'LI', 'DD', 'TD', 'TH']);
 const PHRASING_CONTAINERS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'A', 'BUTTON', 'LABEL', 'SPAN', 'STRONG', 'EM', 'SMALL', 'MARK', 'SUMMARY', 'DT']);
 const PHRASING_CONTENT = new Set(['A', 'ABBR', 'B', 'BDI', 'BDO', 'BR', 'BUTTON', 'CITE', 'CODE', 'DATA', 'DEL', 'EM', 'I', 'IMG', 'INPUT', 'INS', 'KBD', 'LABEL', 'MARK', 'Q', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TIME', 'U', 'VAR', 'WBR']);
@@ -254,6 +255,298 @@ function safeJson(value, fallback) {
   }
 }
 
+function contentFingerprint(value) {
+  const text = String(value || '');
+  let hash = 2166136261;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `${text.length}-${(hash >>> 0).toString(16).padStart(8, '0')}`;
+}
+
+function prepareEditableHtml(value) {
+  const source = String(value || '');
+  const parsed = new DOMParser().parseFromString(source, 'text/html');
+  const editorPolicy = parsed.createElement('meta');
+  editorPolicy.httpEquiv = 'Content-Security-Policy';
+  editorPolicy.content = "script-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'";
+  editorPolicy.dataset.hdEditorCsp = 'hd';
+  parsed.head.prepend(editorPolicy);
+  inertEditableContent(parsed, parsed);
+  const doctype = parsed.doctype ? `<!doctype ${parsed.doctype.name}>\n` : '<!doctype html>\n';
+  return doctype + parsed.documentElement.outerHTML;
+}
+
+function inertEditableContent(root, documentValue) {
+  pickAll('script', root).forEach((script) => {
+    const placeholder = documentValue.createElement('template');
+    placeholder.dataset.hdScriptPlaceholder = 'hd';
+    placeholder.content.append(documentValue.createTextNode(encodeURIComponent(script.outerHTML)));
+    script.replaceWith(placeholder);
+  });
+  pickAll('*', root).forEach((element) => {
+    const events = [];
+    const urls = [];
+    pickAllAttributes(element).forEach((attribute) => {
+      const name = attribute.name.toLowerCase();
+      if (name.startsWith('on')) {
+        events.push([attribute.name, attribute.value]);
+        element.removeAttribute(attribute.name);
+      } else if (['href', 'src', 'xlink:href', 'action', 'formaction'].includes(name) && /^\s*javascript:/i.test(attribute.value)) {
+        urls.push([attribute.name, attribute.value]);
+        element.removeAttribute(attribute.name);
+      }
+    });
+    if (events.length) storeInertAttributes(element, 'data-hd-inert-events', events);
+    if (urls.length) storeInertAttributes(element, 'data-hd-inert-urls', urls);
+  });
+}
+
+function prepareEditableFragment(value, documentValue) {
+  const container = documentValue.createElement('template');
+  container.innerHTML = String(value || '');
+  inertEditableContent(container.content, documentValue);
+  return Array.from(container.content.childNodes);
+}
+
+function pickAllAttributes(element) {
+  return Array.from(element?.attributes || []);
+}
+
+function storeInertAttributes(element, marker, attributes) {
+  const original = element.hasAttribute(marker) ? element.getAttribute(marker) : null;
+  element.setAttribute(marker, `hd:${encodeURIComponent(JSON.stringify({ attributes, original }))}`);
+}
+
+function decodeStoredText(value) {
+  try {
+    return decodeURIComponent(String(value || ''));
+  } catch {
+    return '';
+  }
+}
+
+function restoreInertAttributes(root, marker) {
+  pickAll(`[${marker}]`, root).forEach((element) => {
+    const stored = element.getAttribute(marker) || '';
+    if (!stored.startsWith('hd:')) return;
+    const payload = safeJson(decodeStoredText(stored.slice(3)), {});
+    element.removeAttribute(marker);
+    (Array.isArray(payload.attributes) ? payload.attributes : []).forEach(([name, value]) => {
+      if (name) element.setAttribute(name, value ?? '');
+    });
+    if (payload.original != null) element.setAttribute(marker, payload.original);
+  });
+}
+
+function inertAttributePayload(element, marker) {
+  const stored = element?.getAttribute?.(marker);
+  if (stored != null && !stored.startsWith('hd:')) return { attributes: [], original: stored };
+  const payload = safeJson(decodeStoredText(String(stored || '').slice(3)), {});
+  return {
+    attributes: Array.isArray(payload.attributes) ? payload.attributes : [],
+    original: payload.original ?? null,
+  };
+}
+
+function getInertAttribute(element, marker, name) {
+  const match = inertAttributePayload(element, marker).attributes
+    .find(([attributeName]) => String(attributeName).toLowerCase() === String(name).toLowerCase());
+  return match ? match[1] : null;
+}
+
+function setInertAttribute(element, marker, name, value) {
+  const payload = inertAttributePayload(element, marker);
+  payload.attributes = payload.attributes
+    .filter(([attributeName]) => String(attributeName).toLowerCase() !== String(name).toLowerCase());
+  if (value != null) payload.attributes.push([name, String(value)]);
+  if (payload.attributes.length || payload.original != null) {
+    element.setAttribute(marker, `hd:${encodeURIComponent(JSON.stringify(payload))}`);
+  } else {
+    element.removeAttribute(marker);
+  }
+}
+
+function restoreEditableArtifacts(root) {
+  pickAll('meta[data-hd-editor-csp="hd"]', root).forEach((element) => element.remove());
+  restoreInertAttributes(root, 'data-hd-inert-events');
+  restoreInertAttributes(root, 'data-hd-inert-urls');
+  pickAll('template[data-hd-script-placeholder="hd"]', root).forEach((placeholder) => {
+    const encoded = placeholder.content?.textContent || placeholder.textContent || '';
+    const source = decodeStoredText(encoded);
+    const container = root.ownerDocument.createElement('template');
+    container.innerHTML = source;
+    placeholder.replaceWith(container.content.cloneNode(true));
+  });
+  return root;
+}
+
+function serializeEditableElement(element, inner = false) {
+  if (!element) return '';
+  const clone = restoreEditableArtifacts(element.cloneNode(true));
+  return inner ? clone.innerHTML : clone.outerHTML;
+}
+
+function resolvePathInDocument(documentValue, path) {
+  if (!documentValue?.documentElement || !Array.isArray(path)) return null;
+  let node = documentValue.documentElement;
+  for (const index of path) {
+    node = node?.children?.[index];
+    if (!node) return null;
+  }
+  return node;
+}
+
+function htmlSafetyWarnings(before, after) {
+  const describe = (html) => {
+    const documentValue = new DOMParser().parseFromString(String(html || ''), 'text/html');
+    return {
+      length: String(html || '').length,
+      elements: documentValue.querySelectorAll('*').length,
+      scripts: documentValue.querySelectorAll('script').length,
+      styles: documentValue.querySelectorAll('style, link[rel~="stylesheet"]').length,
+      forms: documentValue.querySelectorAll('form, input, textarea, select, button').length,
+    };
+  };
+  const previous = describe(before);
+  const next = describe(after);
+  const warnings = [];
+  if (previous.length > 500 && next.length < previous.length * .45) warnings.push('候选内容明显短于当前内容，请确认没有遗漏页面区块。');
+  if (next.elements < previous.elements * .55) warnings.push('候选页面的元素数量大幅减少。');
+  if (next.scripts < previous.scripts) warnings.push(`脚本数量从 ${previous.scripts} 个减少到 ${next.scripts} 个。`);
+  if (next.styles < previous.styles) warnings.push(`样式资源从 ${previous.styles} 个减少到 ${next.styles} 个。`);
+  if (next.forms < previous.forms) warnings.push(`表单控件从 ${previous.forms} 个减少到 ${next.forms} 个。`);
+  return warnings;
+}
+
+function countProjectRelativeReferences(value) {
+  const documentValue = new DOMParser().parseFromString(String(value || ''), 'text/html');
+  const base = documentValue.querySelector('base[href]')?.getAttribute('href')?.trim() || '';
+  if (/^(?:https?:|file:|\/\/)/i.test(base)) return 0;
+  const references = [];
+  const collect = (raw) => {
+    const candidate = String(raw || '').trim();
+    if (!candidate || /^(?:#|[a-z][a-z0-9+.-]*:|\/\/)/i.test(candidate)) return;
+    references.push(candidate);
+  };
+  pickAll('[src], link[href], a[href], [poster], object[data], form[action]', documentValue).forEach((element) => {
+    ['src', 'href', 'poster', 'data', 'action'].forEach((name) => {
+      if (element.hasAttribute(name)) collect(element.getAttribute(name));
+    });
+  });
+  pickAll('[srcset]', documentValue).forEach((element) => {
+    String(element.getAttribute('srcset') || '').split(',').forEach((entry) => collect(entry.trim().split(/\s+/)[0]));
+  });
+  pickAll('style, [style]', documentValue).forEach((element) => {
+    const css = element.tagName === 'STYLE' ? element.textContent : element.getAttribute('style');
+    String(css || '').replace(/url\(\s*(['"]?)(.*?)\1\s*\)/gi, (_, __, url) => {
+      collect(url);
+      return '';
+    });
+  });
+  return references.length;
+}
+
+class DraftStore {
+  constructor() {
+    this.databasePromise = null;
+  }
+
+  database() {
+    if (!('indexedDB' in window)) return Promise.resolve(null);
+    if (this.databasePromise) return this.databasePromise;
+    this.databasePromise = new Promise((resolve) => {
+      const request = indexedDB.open('html-designer', 1);
+      request.onupgradeneeded = () => {
+        const database = request.result;
+        if (!database.objectStoreNames.contains('drafts')) {
+          const store = database.createObjectStore('drafts', { keyPath: 'id' });
+          store.createIndex('savedAt', 'savedAt');
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => resolve(null);
+      request.onblocked = () => resolve(null);
+    });
+    return this.databasePromise;
+  }
+
+  fallbackDrafts() {
+    return safeJson(localStorage.getItem(STORAGE.draftFallback), []);
+  }
+
+  async put(payload) {
+    const database = await this.database();
+    if (database) {
+      await new Promise((resolve, reject) => {
+        const request = database.transaction('drafts', 'readwrite').objectStore('drafts').put(payload);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      });
+      return;
+    }
+    const drafts = [payload, ...this.fallbackDrafts().filter(item => item.id !== payload.id)]
+      .sort((a, b) => b.savedAt - a.savedAt)
+      .slice(0, 5);
+    localStorage.setItem(STORAGE.draftFallback, JSON.stringify(drafts));
+  }
+
+  async remove(id) {
+    if (!id) return;
+    const database = await this.database();
+    if (database) {
+      await new Promise((resolve) => {
+        const request = database.transaction('drafts', 'readwrite').objectStore('drafts').delete(id);
+        request.onsuccess = request.onerror = () => resolve();
+      });
+    }
+    const drafts = this.fallbackDrafts().filter(item => item.id !== id);
+    localStorage.setItem(STORAGE.draftFallback, JSON.stringify(drafts));
+  }
+
+  async latest() {
+    const database = await this.database();
+    let indexedDraft = null;
+    if (database) {
+      indexedDraft = await new Promise((resolve) => {
+        const store = database.transaction('drafts').objectStore('drafts');
+        const request = store.index('savedAt').openCursor(null, 'prev');
+        request.onsuccess = () => resolve(request.result?.value || null);
+        request.onerror = () => resolve(null);
+      });
+    }
+    const fallback = this.fallbackDrafts().sort((a, b) => b.savedAt - a.savedAt)[0] || null;
+    const legacy = safeJson(localStorage.getItem(STORAGE.draft), null);
+    const latest = [indexedDraft, fallback, legacy].filter(item => item?.html)
+      .sort((a, b) => Number(b.savedAt || 0) - Number(a.savedAt || 0))[0] || null;
+    if (legacy?.html) {
+      const migrated = {
+        ...legacy,
+        id: legacy.id || `legacy:${legacy.name || 'untitled.html'}:${contentFingerprint(legacy.html)}`,
+      };
+      try {
+        await this.put(migrated);
+        localStorage.removeItem(STORAGE.draft);
+      } catch (_) {}
+      if (latest === legacy) return migrated;
+    }
+    return latest;
+  }
+}
+
+const draftStore = new DraftStore();
+
+function apiFetch(endpoint, options = {}) {
+  const url = new URL(endpoint, window.location.href);
+  const headers = new Headers(options.headers || {});
+  if (url.origin === window.location.origin) {
+    const token = pick('meta[name="html-designer-session"]')?.content || '';
+    if (token && token !== '__HTML_DESIGNER_SESSION__') headers.set('X-HTML-Designer-Session', token);
+  }
+  return fetch(url, { ...options, headers });
+}
+
 function toast(message, type = '') {
   const item = document.createElement('div');
   item.className = `toast ${type}`.trim();
@@ -263,9 +556,45 @@ function toast(message, type = '') {
 }
 
 class ModalService {
-  constructor(root) { this.root = root; }
+  constructor(root) {
+    this.root = root;
+    this.lastOutsideFocus = null;
+    document.addEventListener('focusin', (event) => {
+      if (!this.root.contains(event.target)) this.lastOutsideFocus = event.target;
+    });
+    this.root.addEventListener('click', (event) => {
+      if (event.target === this.root) this.close();
+    });
+    this.root.addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab') return;
+      const controls = pickAll('button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])', this.root)
+        .filter(element => !element.hidden && element.offsetParent !== null);
+      if (!controls.length) return;
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    });
+    new MutationObserver(() => {
+      const active = Boolean(this.root.childElementCount);
+      [byId('welcome'), byId('studio'), byId('ai-drawer')].forEach((element) => {
+        if (element) element.inert = active;
+      });
+    }).observe(this.root, { childList: true });
+  }
 
-  close() { this.root.replaceChildren(); }
+  close() {
+    this.root.replaceChildren();
+    [byId('welcome'), byId('studio'), byId('ai-drawer')].forEach((element) => {
+      if (element) element.inert = false;
+    });
+    if (this.lastOutsideFocus?.isConnected) this.lastOutsideFocus.focus();
+  }
 
   async confirm(title, message, confirmLabel = '确认') {
     return new Promise((resolve) => {
@@ -274,6 +603,7 @@ class ModalService {
       pick('[data-close]', this.root).onclick = () => finish(false);
       pick('[data-cancel]', this.root).onclick = () => finish(false);
       pick('[data-confirm]', this.root).onclick = () => finish(true);
+      pick('[data-cancel]', this.root).focus();
     });
   }
 
@@ -302,18 +632,41 @@ class ModalService {
       await navigator.clipboard.writeText(newText);
       toast('已复制编辑器内容', 'success');
     };
+    pick('[data-close-footer]', this.root).focus();
+  }
+
+  async reviewChange(title, oldText, newText, warnings = []) {
+    return new Promise((resolve) => {
+      const warningMarkup = warnings.length
+        ? `<div class="change-warnings"><strong>应用前请确认</strong><ul>${warnings.map(item => `<li>${escapeText(item)}</li>`).join('')}</ul></div>`
+        : '<div class="change-ready">候选内容结构完整，可以在确认后应用。</div>';
+      this.root.innerHTML = `<section class="modal-card ai-review-card" role="dialog" aria-modal="true" aria-labelledby="ai-review-title"><header class="modal-head"><div><span>AI CHANGE REVIEW</span><h2 id="ai-review-title">${escapeText(title)}</h2></div><button type="button" data-close aria-label="关闭">×</button></header><div class="modal-body">${warningMarkup}<div class="diff-grid"><section class="diff-pane"><h3>当前内容</h3><pre></pre></section><section class="diff-pane"><h3>候选内容</h3><pre></pre></section></div></div><footer class="modal-foot"><button type="button" data-cancel>保留当前内容</button><button class="primary" type="button" data-apply>应用候选内容</button></footer></section>`;
+      const panes = pickAll('pre', this.root);
+      panes[0].textContent = oldText;
+      panes[1].textContent = newText;
+      const finish = (value) => {
+        this.close();
+        resolve(value);
+      };
+      pick('[data-close]', this.root).onclick = () => finish(false);
+      pick('[data-cancel]', this.root).onclick = () => finish(false);
+      pick('[data-apply]', this.root).onclick = () => finish(true);
+      pick('[data-apply]', this.root).focus();
+    });
   }
 
   shortcuts() {
     const rows = [
       ['保存文档', ['⌘', 'S']], ['撤销', ['⌘', 'Z']], ['重做', ['⇧', '⌘', 'Z']],
       ['复制元素', ['⌘', 'D']], ['删除元素', ['⌫']], ['选择父元素', ['⇧', '↑']],
-      ['元素上移', ['⌥', '↑']], ['元素下移', ['⌥', '↓']], ['沉浸浏览', ['P']],
+      ['元素上移', ['⌥', '↑']], ['元素下移', ['⌥', '↓']], ['微调自由位置', ['方向键']],
+      ['沉浸浏览', ['P']],
       ['命令面板', ['⌘', 'K']], ['取消选择 / 退出', ['Esc']], ['快捷键帮助', ['?']],
       ['组件搜索', ['/']], ['快速插入组件', ['I']],
     ];
     this.root.innerHTML = `<section class="modal-card shortcuts" role="dialog" aria-modal="true" aria-label="快捷键"><header class="modal-head"><h2>快捷键</h2><button type="button" data-close aria-label="关闭">×</button></header><div class="modal-body"><p class="shortcut-intro">用键盘完成高频操作。Windows 和 Linux 上请使用 Ctrl 代替 ⌘。</p><div class="shortcut-grid">${rows.map(([label, keys]) => `<div class="shortcut-row"><strong>${escapeText(label)}</strong><span>${keys.map((key) => `<kbd>${escapeText(key)}</kbd>`).join('')}</span></div>`).join('')}</div></div><footer class="modal-foot"><button class="primary" type="button" data-close-footer>知道了</button></footer></section>`;
     pickAll('[data-close], [data-close-footer]', this.root).forEach((button) => { button.onclick = () => this.close(); });
+    pick('[data-close-footer]', this.root).focus();
   }
 
   component(info, selector, fields, onApply) {
@@ -358,9 +711,12 @@ class StudioModel extends EventTarget {
     this.mode = 'visual';
     this.sourceText = '';
     this.sourceBaseline = '';
+    this.savedHtml = '';
+    this.documentId = '';
     this.fileHandle = null;
     this.fileName = 'untitled.html';
     this.fileMtime = null;
+    this.fileSignature = null;
     this.dirty = false;
     this.history = [];
     this.cursor = -1;
@@ -414,13 +770,13 @@ class StudioModel extends EventTarget {
       element.removeAttribute('contenteditable');
       element.removeAttribute('data-hd-editing');
     });
+    restoreEditableArtifacts(clone);
     const doctype = this.doc.doctype ? `<!doctype ${this.doc.doctype.name}>\n` : '<!doctype html>\n';
     return doctype + clone.outerHTML;
   }
 
   currentText() {
     if (this.mode === 'source') return byId('source-editor').value;
-    if (!this.dirty && this.sourceText) return this.sourceText;
     return this.serializeDocument();
   }
 
@@ -430,18 +786,41 @@ class StudioModel extends EventTarget {
     this.signal('history');
   }
 
-  checkpoint(label) {
-    if (!this.doc) return;
-    const html = this.serializeDocument();
+  updateDirty(html = this.currentText()) {
+    this.setDirty(String(html || '') !== String(this.savedHtml || ''));
+  }
+
+  markSaved(html = this.currentText()) {
+    const current = String(html || '');
+    window.clearTimeout(this.autosaveTimer);
+    this.autosaveTimer = null;
+    this.savedHtml = current;
+    this.sourceText = current;
+    this.updateDirty(current);
+    draftStore.remove(this.documentId).catch(() => {});
+  }
+
+  pushHistory(html, label, path = this.elementPath()) {
+    const currentHtml = String(html || '');
     const current = this.history[this.cursor];
-    if (current?.html === html) return;
+    if (current?.html === currentHtml) {
+      this.updateDirty(currentHtml);
+      return false;
+    }
     this.history.splice(this.cursor + 1);
-    this.history.push({ html, path: this.elementPath(), label });
-    if (this.history.length > this.historyLimit) this.history.shift();
+    this.history.push({ html: currentHtml, path, label });
+    while (this.history.length > this.historyLimit) this.history.shift();
     this.cursor = this.history.length - 1;
-    this.setDirty(true);
+    this.updateDirty(currentHtml);
     this.scheduleAutosave();
     this.signal('history');
+    if (canvasPageMode && this.mode === 'visual') scheduleFullPageMeasurement();
+    return true;
+  }
+
+  checkpoint(label) {
+    if (!this.doc) return;
+    this.pushHistory(this.serializeDocument(), label);
   }
 
   async travel(offset) {
@@ -452,7 +831,9 @@ class StudioModel extends EventTarget {
     const snapshot = this.history[next];
     const selectedPath = snapshot.path;
     await canvas.load(snapshot.html, { preserveHistory: true });
-    this.setDirty(next !== 0);
+    this.sourceText = this.serializeDocument();
+    this.updateDirty(this.sourceText);
+    this.scheduleAutosave();
     this.signal('history');
     const restored = this.resolvePath(selectedPath);
     if (restored) this.select(restored);
@@ -460,12 +841,27 @@ class StudioModel extends EventTarget {
 
   scheduleAutosave() {
     window.clearTimeout(this.autosaveTimer);
-    this.autosaveTimer = window.setTimeout(() => {
-      const payload = { html: this.currentText(), name: this.fileName, savedAt: Date.now() };
+    if (!this.dirty) {
+      this.autosaveTimer = null;
+      draftStore.remove(this.documentId).catch(() => {});
+      return;
+    }
+    this.autosaveTimer = window.setTimeout(async () => {
+      const html = this.currentText();
+      const payload = {
+        id: this.documentId || `draft:${this.fileName}:${contentFingerprint(this.savedHtml || html)}`,
+        html,
+        name: this.fileName,
+        savedHtml: this.savedHtml,
+        savedAt: Date.now(),
+      };
       try {
-        localStorage.setItem(STORAGE.draft, JSON.stringify(payload));
+        await draftStore.put(payload);
         byId('autosave-text').textContent = `自动保存 ${new Date(payload.savedAt).toLocaleTimeString()}`;
-      } catch { /* Storage may be unavailable. */ }
+      } catch {
+        byId('autosave-text').textContent = '自动保存失败';
+        toast('自动保存空间不足，请尽快保存文件', 'error');
+      }
     }, 1500);
   }
 }
@@ -495,6 +891,8 @@ class CanvasController {
     this.activeBrowseSession = null;
     this.pendingBrowse = null;
     this.browseReadyTimer = null;
+    this.hoverFrameRequest = 0;
+    this.hoverCandidate = null;
     this.initParentEvents();
   }
 
@@ -506,10 +904,15 @@ class CanvasController {
     pickAll('[data-resize]', this.layer).forEach((handle) => {
       handle.addEventListener('pointerdown', (event) => this.beginResize(event, handle.dataset.resize));
     });
+    this.frame.addEventListener('pointerdown', (event) => this.beginMove(event));
     pick('.selection-grip', this.actions)?.addEventListener('pointerdown', (event) => this.beginMove(event));
     document.addEventListener('pointermove', (event) => { this.updateResize(event); this.updateMove(event); this.updateBlockDrag(event); });
     document.addEventListener('pointerup', (event) => { this.endResize(); this.endMove(); this.endBlockDrag(event); });
-    document.addEventListener('pointercancel', (event) => this.endBlockDrag(event, true));
+    document.addEventListener('pointercancel', (event) => {
+      this.endResize(true);
+      this.endMove(true, event.pointerId);
+      this.endBlockDrag(event, true);
+    });
     window.addEventListener('resize', () => this.updateOverlay());
     window.addEventListener('message', (event) => this.handleBrowseReady(event));
     new ResizeObserver(() => scheduleCanvasViewportUpdate()).observe(byId('workbench'));
@@ -542,14 +945,15 @@ class CanvasController {
           this.updateOverlay();
           updateCanvasInfo();
           model.signal('document', model.doc);
-          if (!options.preserveHistory) model.resetHistory(source);
+          if (!options.preserveHistory) model.resetHistory(model.serializeDocument());
+          if (canvasPageMode) scheduleFullPageMeasurement();
           finish(model.doc);
         } catch (error) { finish(null, error); }
       };
       const timer = window.setTimeout(() => finish(null, new Error('编辑画布加载超时，请重新切换到编辑模式')), 30000);
       this.pendingLoad = { sequence, cancel: () => finish(null) };
       this.iframe.addEventListener('load', onLoad, { once: true });
-      this.iframe.srcdoc = source;
+      this.iframe.srcdoc = prepareEditableHtml(source);
     });
   }
 
@@ -576,6 +980,7 @@ class CanvasController {
     this.shell.classList.add('browsing');
     this.iframe.hidden = true;
     this.browseFrame.hidden = false;
+    applyCanvasHeight(currentBaseViewport().height);
     const session = String(++this.browseSession);
     this.activeBrowseSession = session;
     this.pendingBrowse = { session, html: String(html || EMPTY_DOCUMENT) };
@@ -601,6 +1006,7 @@ class CanvasController {
     this.browseFrame.src = 'about:blank';
     this.iframe.hidden = false;
     this.preview = false;
+    if (canvasPageMode) scheduleFullPageMeasurement();
     this.updateOverlay();
     updateCanvasInfo();
   }
@@ -611,8 +1017,32 @@ class CanvasController {
     this.actions.classList.add('opening');
   }
 
+  parentPointerEvent(event) {
+    const rect = this.iframe.getBoundingClientRect();
+    const scaleX = rect.width / Math.max(1, this.iframe.clientWidth);
+    const scaleY = rect.height / Math.max(1, this.iframe.clientHeight);
+    return {
+      button: event.button,
+      pointerId: event.pointerId,
+      clientX: rect.left + event.clientX * scaleX,
+      clientY: rect.top + event.clientY * scaleY,
+      shiftKey: event.shiftKey,
+      altKey: event.altKey,
+      preventDefault: () => event.preventDefault(),
+    };
+  }
+
   wireDocument(doc) {
     if (!doc?.body) return;
+    doc.addEventListener('pointerdown', (event) => {
+      if (event.button !== 0 || event.target.closest?.('[data-hd-editing="true"]')) return;
+      const target = resolveComponentTarget(event.target);
+      if (!target || target !== model.selected) return;
+      this.beginMove(this.parentPointerEvent(event), target, event.target);
+    }, true);
+    doc.addEventListener('pointermove', (event) => this.updateMove(this.parentPointerEvent(event)), true);
+    doc.addEventListener('pointerup', (event) => this.endMove(false, event.pointerId), true);
+    doc.addEventListener('pointercancel', (event) => this.endMove(true, event.pointerId), true);
     doc.addEventListener('click', (event) => {
       if (event.target.closest?.('[data-hd-editing="true"]')) return;
       const link = event.target.closest?.('a');
@@ -636,10 +1066,30 @@ class CanvasController {
       event.preventDefault();
       this.editText(resolveComponentTarget(event.target));
     }, true);
-    doc.addEventListener('mousemove', (event) => this.showHover(resolveComponentTarget(event.target)));
-    doc.addEventListener('mouseleave', () => { this.hover.hidden = true; });
+    doc.addEventListener('mousemove', (event) => this.queueHover(resolveComponentTarget(event.target)));
+    doc.addEventListener('mouseleave', () => {
+      window.cancelAnimationFrame(this.hoverFrameRequest);
+      this.hoverCandidate = null;
+      this.hover.hidden = true;
+    });
     doc.addEventListener('scroll', () => this.updateOverlay(), true);
     doc.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && this.moveSession) {
+        event.preventDefault();
+        this.endMove(true);
+        return;
+      }
+      if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey && /^Arrow(Left|Right|Up|Down)$/.test(event.key) && model.selected) {
+        event.preventDefault();
+        const offsets = {
+          ArrowLeft: [-1, 0],
+          ArrowRight: [1, 0],
+          ArrowUp: [0, -1],
+          ArrowDown: [0, 1],
+        };
+        this.nudgeSelected(...offsets[event.key]);
+        return;
+      }
       if (event.key === 'Escape' && this.preview) exitPreview();
     });
     doc.addEventListener('dragover', (event) => this.dragOver(event));
@@ -658,6 +1108,7 @@ class CanvasController {
   editableTextTarget(element) {
     if (!element || element.childElementCount === 0) return element;
     const selector = 'h1,h2,h3,h4,h5,h6,p,a,button,span,li,dt,dd,figcaption,summary,strong,em,small';
+    if (element.matches(selector)) return element;
     return Array.from(element.querySelectorAll(selector)).find((candidate) => candidate.childElementCount === 0 && candidate.textContent.trim()) || element;
   }
 
@@ -723,6 +1174,15 @@ class CanvasController {
     this.hover.hidden = false;
   }
 
+  queueHover(element) {
+    this.hoverCandidate = element;
+    if (this.hoverFrameRequest) return;
+    this.hoverFrameRequest = window.requestAnimationFrame(() => {
+      this.hoverFrameRequest = 0;
+      this.showHover(this.hoverCandidate);
+    });
+  }
+
   updateOverlay() {
     const element = model.selected;
     if (!element?.isConnected || this.preview || model.mode !== 'visual') {
@@ -748,9 +1208,12 @@ class CanvasController {
     Object.assign(this.label.style, { left: `${left}px`, top: `${Math.max(0, top - 20 / uiScale)}px` });
     const width = Math.round(rect.width);
     const height = Math.round(rect.height);
-    this.size.textContent = `${width} × ${height}`;
+    const pageX = Math.round(rect.left + element.ownerDocument.defaultView.scrollX);
+    const pageY = Math.round(rect.top + element.ownerDocument.defaultView.scrollY);
+    this.size.textContent = this.moveSession ? `${width} × ${height} · X ${pageX} · Y ${pageY}` : `${width} × ${height}`;
     const sizeTop = top + rect.height + 24 / uiScale < this.iframe.clientHeight ? top + rect.height + 5 / uiScale : Math.max(1, top + rect.height - 20 / uiScale);
-    const sizeLeft = Math.min(Math.max(2, left + rect.width - 66), Math.max(2, this.iframe.clientWidth - 68));
+    const sizeWidth = this.moveSession ? 176 : 66;
+    const sizeLeft = Math.min(Math.max(2, left + rect.width - sizeWidth), Math.max(2, this.iframe.clientWidth - sizeWidth - 2));
     Object.assign(this.size.style, { left: `${sizeLeft}px`, top: `${sizeTop}px` });
     const summarySize = byId('summary-size');
     if (summarySize) summarySize.textContent = `${width} × ${height}`;
@@ -776,6 +1239,20 @@ class CanvasController {
 
   setAttribute(element, name, value) {
     const next = String(value ?? '').trim();
+    const normalizedName = String(name || '').toLowerCase();
+    if (normalizedName.startsWith('on')) {
+      element.removeAttribute(name);
+      setInertAttribute(element, 'data-hd-inert-events', name, next || null);
+      return;
+    }
+    if (['href', 'src', 'xlink:href', 'action', 'formaction'].includes(normalizedName)) {
+      setInertAttribute(element, 'data-hd-inert-urls', name, null);
+      if (/^javascript:/i.test(next)) {
+        element.removeAttribute(name);
+        setInertAttribute(element, 'data-hd-inert-urls', name, next);
+        return;
+      }
+    }
     if (next) element.setAttribute(name, next); else element.removeAttribute(name);
   }
 
@@ -784,7 +1261,17 @@ class CanvasController {
     const textTarget = this.editableTextTarget(element);
     const textKeys = new Set(['link', 'button', 'summary', 'list-item', 'table-cell', 'heading', 'text']);
     if (textKeys.has(info.key) && textTarget && !VOID_TAGS.has(textTarget.tagName)) {
-      fields.push({ name: 'text', label: '主要文字', value: textTarget.textContent.trim(), wide: true });
+      if (textTarget.childElementCount) {
+        fields.push({
+          name: 'richText',
+          label: '文字与内联标记',
+          type: 'textarea',
+          value: serializeEditableElement(textTarget, true),
+          help: '保留 span、strong 等内联标记；只修改文字时不要删除标签',
+          wide: true,
+          rows: 4,
+        });
+      } else fields.push({ name: 'text', label: '主要文字', value: textTarget.textContent.trim(), wide: true });
     }
     if (info.key === 'link') {
       fields.push(
@@ -874,6 +1361,9 @@ class CanvasController {
       const before = model.serializeDocument();
       const setBoolean = (name, enabled) => element.toggleAttribute(name, Boolean(enabled));
       if ('text' in values && textTarget) textTarget.textContent = values.text;
+      if ('richText' in values && textTarget) {
+        textTarget.replaceChildren(...prepareEditableFragment(values.richText, textTarget.ownerDocument));
+      }
       if (info.key === 'link') {
         this.setAttribute(element, 'href', values.href);
         this.setAttribute(element, 'target', values.target);
@@ -907,13 +1397,20 @@ class CanvasController {
         setBoolean('required', values.required);
         const lines = values.options.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
         if (lines.length) {
-          element.replaceChildren(...lines.map((line) => {
+          const existing = Array.from(element.options);
+          lines.forEach((line, index) => {
             const [label, value] = line.split('|').map((part) => part.trim());
-            const option = model.doc.createElement('option');
+            const option = existing[index] || model.doc.createElement('option');
             option.textContent = label;
             option.value = value || label;
-            return option;
-          }));
+            if (!existing[index]) {
+              const last = existing.at(-1);
+              const container = last?.parentElement?.tagName === 'OPTGROUP' ? last.parentElement : element;
+              container.append(option);
+              existing.push(option);
+            }
+          });
+          existing.slice(lines.length).forEach(option => option.remove());
         }
       } else if (info.key === 'form') {
         this.setAttribute(element, 'action', values.action);
@@ -954,11 +1451,44 @@ class CanvasController {
     });
   }
 
+  prepareDuplicate(copy) {
+    if (!copy) return copy;
+    const idMap = new Map();
+    const reserved = new Set();
+    const nodes = [copy, ...pickAll('[id]', copy)].filter(node => node.id);
+    nodes.forEach((node) => {
+      const original = node.id;
+      const stem = `${original}-copy`;
+      let candidate = stem;
+      let index = 2;
+      while (model.doc.getElementById(candidate) || reserved.has(candidate)) candidate = `${stem}-${index++}`;
+      reserved.add(candidate);
+      idMap.set(original, candidate);
+      node.id = candidate;
+    });
+    const tokenAttributes = ['aria-labelledby', 'aria-describedby', 'aria-controls', 'aria-owns', 'headers'];
+    [copy, ...pickAll('*', copy)].forEach((node) => {
+      ['for', 'list', 'form'].forEach((attribute) => {
+        const value = node.getAttribute(attribute);
+        if (idMap.has(value)) node.setAttribute(attribute, idMap.get(value));
+      });
+      tokenAttributes.forEach((attribute) => {
+        const value = node.getAttribute(attribute);
+        if (!value) return;
+        node.setAttribute(attribute, value.split(/\s+/).map(token => idMap.get(token) || token).join(' '));
+      });
+      const href = node.getAttribute('href');
+      if (href?.startsWith('#') && idMap.has(href.slice(1))) node.setAttribute('href', `#${idMap.get(href.slice(1))}`);
+    });
+    return copy;
+  }
+
   runCommand(command) {
     if (command === 'insert') return openInsertPalette();
     if (command === 'deselect') return model.select(null);
     const element = model.selected;
     if (!element) return;
+    if (command === 'reset-position') return this.resetFreePosition(element);
     if (command === 'component-settings') return this.openComponentEditor(element);
     if (command === 'edit') return this.editText(element);
     if (command === 'review') return ai.openReview();
@@ -968,7 +1498,7 @@ class CanvasController {
       return;
     }
     if (command === 'duplicate') {
-      const copy = element.cloneNode(true);
+      const copy = this.prepareDuplicate(element.cloneNode(true));
       element.after(copy);
       model.select(copy);
       model.checkpoint('复制元素');
@@ -996,7 +1526,7 @@ class CanvasController {
     }
     if ((command === 'row-before' || command === 'row-after') && element.closest('tr')) {
       const row = element.closest('tr');
-      const newRow = row.cloneNode(true);
+      const newRow = this.prepareDuplicate(row.cloneNode(true));
       Array.from(newRow.cells).forEach((cell) => { cell.textContent = '新单元格'; });
       if (command === 'row-before') row.before(newRow); else row.after(newRow);
       model.select(newRow.cells[0] || newRow);
@@ -1042,41 +1572,171 @@ class CanvasController {
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     const rect = element.getBoundingClientRect();
-    this.resizeSession = { element, axis, x: event.clientX, y: event.clientY, width: rect.width, height: rect.height, ratio: rect.width / Math.max(1, rect.height), changed: false };
+    this.resizeSession = {
+      element,
+      axis,
+      x: event.clientX,
+      y: event.clientY,
+      width: rect.width,
+      height: rect.height,
+      inlineWidth: element.style.getPropertyValue('width'),
+      widthPriority: element.style.getPropertyPriority('width'),
+      inlineHeight: element.style.getPropertyValue('height'),
+      heightPriority: element.style.getPropertyPriority('height'),
+      ratio: rect.width / Math.max(1, rect.height),
+      changed: false,
+    };
   }
 
-  beginMove(event) {
+  restoreInlineProperty(element, property, value, priority = '') {
+    if (value) element.style.setProperty(property, value, priority);
+    else element.style.removeProperty(property);
+    if (!element.getAttribute('style')) element.removeAttribute('style');
+  }
+
+  freeTranslateOffset(element = model.selected) {
+    if (!element?.isConnected) return { x: 0, y: 0 };
+    const computed = String(element.ownerDocument.defaultView.getComputedStyle(element).translate || 'none').trim();
+    if (!computed || computed === 'none') return { x: 0, y: 0 };
+    const pixels = computed.match(/^(-?(?:\d+(?:\.\d+)?|\.\d+))px(?:\s+(-?(?:\d+(?:\.\d+)?|\.\d+))px)?(?:\s+-?(?:\d+(?:\.\d+)?|\.\d+)px)?$/);
+    if (pixels) return { x: Number(pixels[1]) || 0, y: Number(pixels[2]) || 0 };
+
+    const visualRect = element.getBoundingClientRect();
+    const inlineTranslate = element.style.getPropertyValue('translate');
+    const translatePriority = element.style.getPropertyPriority('translate');
+    const inlineTransition = element.style.getPropertyValue('transition');
+    const transitionPriority = element.style.getPropertyPriority('transition');
+    element.style.setProperty('transition', 'none', 'important');
+    element.style.setProperty('translate', 'none', 'important');
+    const originRect = element.getBoundingClientRect();
+    this.restoreInlineProperty(element, 'translate', inlineTranslate, translatePriority);
+    this.restoreInlineProperty(element, 'transition', inlineTransition, transitionPriority);
+    return {
+      x: visualRect.left - originRect.left,
+      y: visualRect.top - originRect.top,
+    };
+  }
+
+  setFreePosition(element, x, y, options = {}) {
+    if (!element?.isConnected || element === model.doc?.body) return false;
+    const current = this.freeTranslateOffset(element);
+    const nextX = Math.round((Number(x) || 0) * 10) / 10;
+    const nextY = Math.round((Number(y) || 0) * 10) / 10;
+    if (Math.abs(current.x - nextX) < .05 && Math.abs(current.y - nextY) < .05) return false;
+    const priority = options.priority ?? element.style.getPropertyPriority('translate');
+    element.style.setProperty('translate', `${nextX}px ${nextY}px`, priority);
+    if (options.checkpoint !== false) model.checkpoint(options.label || '自由移动组件');
+    if (canvasPageMode) scheduleFullPageMeasurement();
+    this.updateOverlay();
+    return true;
+  }
+
+  resetFreePosition(element = model.selected) {
+    if (!element?.isConnected || element === model.doc?.body) return;
+    const before = model.serializeDocument();
+    element.style.setProperty('translate', 'none');
+    if (model.serializeDocument() !== before) {
+      model.checkpoint('组件位置归零');
+      renderInspectors();
+      this.updateOverlay();
+      setStatus('组件已回到原始布局位置');
+      toast('组件位置已归零', 'success');
+    }
+  }
+
+  nudgeSelected(dx, dy) {
     const element = model.selected;
-    if (!element) return;
+    if (!element || element === model.doc?.body || model.mode !== 'visual') return false;
+    const current = this.freeTranslateOffset(element);
+    const moved = this.setFreePosition(element, current.x + dx, current.y + dy, {
+      label: '微调组件位置',
+    });
+    if (moved) {
+      renderInspectors();
+      setStatus(`组件位置 X ${Math.round(current.x + dx)} · Y ${Math.round(current.y + dy)}`);
+    }
+    return moved;
+  }
+
+  beginMove(event, element = model.selected, captureTarget = event.currentTarget) {
+    if (event.button !== 0 || !element || element === model.doc?.body || this.resizeSession || this.layer.classList.contains('editing')) return;
     event.preventDefault();
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    this.moveSession = { element, x: event.clientX, y: event.clientY, transform: element.style.transform || '', changed: false };
+    captureTarget?.setPointerCapture?.(event.pointerId);
+    this.frame.focus({ preventScroll: true });
+    const offset = this.freeTranslateOffset(element);
+    this.moveSession = {
+      element,
+      pointerId: event.pointerId,
+      captureTarget,
+      startX: event.clientX,
+      startY: event.clientY,
+      baseX: offset.x,
+      baseY: offset.y,
+      nextX: offset.x,
+      nextY: offset.y,
+      inlineTranslate: element.style.getPropertyValue('translate'),
+      translatePriority: element.style.getPropertyPriority('translate'),
+      active: false,
+      changed: false,
+    };
     this.actions.classList.add('moving');
-    setStatus('正在移动元素 · 松开鼠标完成');
+    this.layer.classList.add('moving');
+    setStatus('自由移动组件 · 按住 Shift 可锁定水平或垂直方向 · Esc 取消');
   }
 
   updateMove(event) {
     const session = this.moveSession;
-    if (!session) return;
-    const dx = Math.round((event.clientX - session.x) / canvasZoom);
-    const dy = Math.round((event.clientY - session.y) / canvasZoom);
-    session.element.style.transform = `${session.transform} translate(${dx}px, ${dy}px)`.trim();
-    session.changed = Math.abs(dx) + Math.abs(dy) > 1;
-    model.setDirty(true);
-    this.updateOverlay();
+    if (!session || session.pointerId !== event.pointerId) return;
+    const screenDx = event.clientX - session.startX;
+    const screenDy = event.clientY - session.startY;
+    if (!session.active && Math.hypot(screenDx, screenDy) < 3) return;
+    session.active = true;
+    const iframeRect = this.iframe.getBoundingClientRect();
+    const scaleX = iframeRect.width / Math.max(1, this.iframe.clientWidth);
+    const scaleY = iframeRect.height / Math.max(1, this.iframe.clientHeight);
+    let dx = screenDx / Math.max(.01, scaleX);
+    let dy = screenDy / Math.max(.01, scaleY);
+    if (event.shiftKey) {
+      if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
+      else dx = 0;
+    }
+    session.nextX = session.baseX + dx;
+    session.nextY = session.baseY + dy;
+    session.changed = this.setFreePosition(session.element, session.nextX, session.nextY, {
+      checkpoint: false,
+      priority: session.translatePriority,
+    }) || session.changed;
+    const pageX = Math.round(session.element.getBoundingClientRect().left + model.doc.defaultView.scrollX);
+    const pageY = Math.round(session.element.getBoundingClientRect().top + model.doc.defaultView.scrollY);
+    setStatus(`自由移动组件 · X ${pageX} · Y ${pageY}`);
   }
 
-  endMove() {
+  endMove(cancel = false, pointerId = null) {
     const session = this.moveSession;
-    if (!session) return;
-    if (!session.changed) session.element.style.transform = session.transform;
-    else {
-      model.checkpoint('自由移动元素');
-      setStatus('已自由移动元素');
-      toast('元素位置已更新', 'success');
+    if (!session || (pointerId != null && session.pointerId !== pointerId)) return;
+    if (session.captureTarget?.hasPointerCapture?.(session.pointerId)) {
+      session.captureTarget.releasePointerCapture(session.pointerId);
     }
+    if (cancel && session.changed) {
+      this.restoreInlineProperty(session.element, 'translate', session.inlineTranslate, session.translatePriority);
+      setStatus('已取消自由移动');
+    } else if (session.changed) {
+      model.select(session.element);
+      model.checkpoint('自由移动组件');
+      renderInspectors();
+      renderTree();
+      const offset = this.freeTranslateOffset(session.element);
+      setStatus(`组件自由位置已更新 · X ${Math.round(offset.x)} · Y ${Math.round(offset.y)}`);
+      toast('组件已移动到新位置', 'success');
+    } else if (!cancel) {
+      this.showSelectionMenu();
+    }
+    this.dropMarker.hidden = true;
     this.actions.classList.remove('moving');
+    this.layer.classList.remove('moving');
     this.moveSession = null;
+    this.updateOverlay();
+    if (canvasPageMode) scheduleFullPageMeasurement();
   }
 
   updateResize(event) {
@@ -1090,13 +1750,17 @@ class CanvasController {
     if (session.axis.includes('x')) session.element.style.width = `${Math.round(width)}px`;
     if (session.axis.includes('y')) session.element.style.height = `${Math.round(height)}px`;
     session.changed = true;
-    model.setDirty(true);
     this.updateOverlay();
   }
 
-  endResize() {
-    if (!this.resizeSession) return;
-    if (this.resizeSession.changed) model.checkpoint('调整尺寸');
+  endResize(cancel = false) {
+    const session = this.resizeSession;
+    if (!session) return;
+    if (cancel && session.changed) {
+      this.restoreInlineProperty(session.element, 'width', session.inlineWidth, session.widthPriority);
+      this.restoreInlineProperty(session.element, 'height', session.inlineHeight, session.heightPriority);
+      this.updateOverlay();
+    } else if (session.changed) model.checkpoint('调整尺寸');
     this.resizeSession = null;
   }
 
@@ -1219,9 +1883,7 @@ class CanvasController {
 
   createNode(html) {
     if (!html || !model.doc) return null;
-    const template = model.doc.createElement('template');
-    template.innerHTML = html.trim();
-    return template.content.firstElementChild;
+    return prepareEditableFragment(html.trim(), model.doc).find(node => node.nodeType === Node.ELEMENT_NODE) || null;
   }
 
   canContain(element, node = null) {
@@ -1545,6 +2207,37 @@ function styleControl(element, label, property, value, options) {
   }, options);
 }
 
+function freePositionControl(element, label, axis) {
+  const position = canvas.freeTranslateOffset(element);
+  return control(label, String(Math.round(position[axis] * 10) / 10), (next) => {
+    const value = Number(next);
+    if (!Number.isFinite(value)) return;
+    const current = canvas.freeTranslateOffset(element);
+    if (canvas.setFreePosition(
+      element,
+      axis === 'x' ? value : current.x,
+      axis === 'y' ? value : current.y,
+      { label: '设置组件自由位置' },
+    )) {
+      renderInspectors();
+      setStatus(`组件${axis === 'x' ? '水平' : '垂直'}位置已更新`);
+    }
+  }, { type: 'number' });
+}
+
+function freePositionResetControl(element) {
+  const row = document.createElement('div');
+  row.className = 'free-position-actions';
+  const hint = document.createElement('small');
+  hint.textContent = '拖动选中框可自由摆放；Shift 锁定方向';
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = '位置归零';
+  button.onclick = () => canvas.resetFreePosition(element);
+  row.append(hint, button);
+  return row;
+}
+
 function renderInspectors() {
   const element = model.selected;
   const targets = ['style-inspector', 'attribute-inspector', 'behavior-inspector', 'markup-inspector'].map(byId);
@@ -1570,6 +2263,11 @@ function renderStyleInspector(element) {
   const computed = element.ownerDocument.defaultView.getComputedStyle(element);
   root.replaceChildren(
     boxModelDiagram(element, computed),
+    group('自由位置', [
+      freePositionControl(element, '水平偏移 X', 'x'),
+      freePositionControl(element, '垂直偏移 Y', 'y'),
+      freePositionResetControl(element),
+    ]),
     group('字体', [
       styleControl(element, '字体', 'font-family', element.style.fontFamily || computed.fontFamily, { values: ['', 'system-ui', 'Arial, sans-serif', 'Georgia, serif', 'ui-monospace, monospace'] }),
       styleControl(element, '字号', 'font-size', element.style.fontSize || computed.fontSize),
@@ -1637,7 +2335,11 @@ function renderAttributeInspector(element) {
   }));
 
   const attributes = group('属性', []);
-  Array.from(element.attributes).filter((attribute) => !['class', 'id', 'style', 'contenteditable', 'data-hd-editing'].includes(attribute.name)).forEach((attribute) => {
+  Array.from(element.attributes).filter((attribute) => {
+    return !['class', 'id', 'style', 'contenteditable', 'data-hd-editing'].includes(attribute.name)
+      && !attribute.name.startsWith('data-hd-inert-')
+      && attribute.name !== 'data-hd-script-placeholder';
+  }).forEach((attribute) => {
     const row = document.createElement('div');
     row.className = 'attribute-row';
     const name = document.createElement('input');
@@ -1650,7 +2352,7 @@ function renderAttributeInspector(element) {
       const nextName = name.value.trim();
       if (!nextName || /[\s"'<>/=]/.test(nextName)) return;
       element.removeAttribute(attribute.name);
-      element.setAttribute(nextName, value.value);
+      canvas.setAttribute(element, nextName, value.value);
       model.checkpoint('修改属性');
     };
     name.onchange = update;
@@ -1700,9 +2402,10 @@ function renderBehaviorInspector(element) {
   code.placeholder = 'event.preventDefault();\nthis.classList.toggle("active");';
   const sync = () => {
     const eventName = eventInput.value;
-    actionInput.value = element.getAttribute(`data-hd-${eventName}-action`) || (element.hasAttribute(eventName) ? 'custom' : 'none');
+    const eventCode = getInertAttribute(element, 'data-hd-inert-events', eventName) ?? element.getAttribute(eventName);
+    actionInput.value = element.getAttribute(`data-hd-${eventName}-action`) || (eventCode != null ? 'custom' : 'none');
     valueInput.value = element.getAttribute(`data-hd-${eventName}-value`) || '';
-    code.value = element.getAttribute(eventName) || '';
+    code.value = eventCode || '';
     code.hidden = actionInput.value !== 'custom';
     valueRow.hidden = ['none', 'custom'].includes(actionInput.value);
   };
@@ -1722,8 +2425,7 @@ function renderBehaviorInspector(element) {
       'toggle-class': (() => { const [selector, className = 'active'] = value.split(/\s+(?=[^\s]+$)/); return `var t=document.querySelector(${JSON.stringify(selector || 'body')});if(t)t.classList.toggle(${JSON.stringify(className.replace(/^\./, ''))});`; })(),
       custom: code.value,
     };
-    if (action === 'none') element.removeAttribute(eventName);
-    else element.setAttribute(eventName, scripts[action] || '');
+    canvas.setAttribute(element, eventName, action === 'none' ? '' : scripts[action] || '');
     element.setAttribute(`data-hd-${eventName}-action`, action);
     element.setAttribute(`data-hd-${eventName}-value`, value);
     model.checkpoint('设置交互');
@@ -1731,7 +2433,7 @@ function renderBehaviorInspector(element) {
   };
   pick('[data-clear]', actions).onclick = () => {
     const eventName = eventInput.value;
-    element.removeAttribute(eventName);
+    canvas.setAttribute(element, eventName, '');
     element.removeAttribute(`data-hd-${eventName}-action`);
     element.removeAttribute(`data-hd-${eventName}-value`);
     model.checkpoint('清除交互');
@@ -1747,15 +2449,16 @@ function renderMarkupInspector(element) {
   root.replaceChildren();
   const outer = group('Outer HTML', []);
   const outerArea = document.createElement('textarea');
-  outerArea.value = element.outerHTML;
+  outerArea.value = serializeEditableElement(element);
   const outerActions = document.createElement('div');
   outerActions.className = 'control-actions';
   outerActions.innerHTML = '<button type="button">应用 outer HTML</button>';
   pick('button', outerActions).onclick = () => {
-    const template = element.ownerDocument.createElement('template');
-    template.innerHTML = outerArea.value.trim();
-    if (template.content.children.length !== 1) return toast('Outer HTML 必须只有一个根元素', 'error');
-    const replacement = template.content.firstElementChild;
+    const nodes = prepareEditableFragment(outerArea.value.trim(), element.ownerDocument);
+    const elements = nodes.filter(node => node.nodeType === Node.ELEMENT_NODE);
+    const extraContent = nodes.some(node => node.nodeType !== Node.ELEMENT_NODE && node.textContent.trim());
+    if (elements.length !== 1 || extraContent) return toast('Outer HTML 必须只有一个根元素', 'error');
+    const replacement = elements[0];
     element.replaceWith(replacement);
     model.select(replacement);
     model.checkpoint('编辑 outer HTML');
@@ -1768,12 +2471,12 @@ function renderMarkupInspector(element) {
   outer.append(outerArea, outerActions);
   const inner = group('Inner HTML', []);
   const innerArea = document.createElement('textarea');
-  innerArea.value = element.innerHTML;
+  innerArea.value = serializeEditableElement(element, true);
   const innerActions = document.createElement('div');
   innerActions.className = 'control-actions';
   innerActions.innerHTML = '<button type="button">应用 inner HTML</button>';
   pick('button', innerActions).onclick = () => {
-    element.innerHTML = innerArea.value;
+    element.replaceChildren(...prepareEditableFragment(innerArea.value, element.ownerDocument));
     model.checkpoint('编辑 inner HTML');
     renderTree();
     renderInspectors();
@@ -1806,37 +2509,70 @@ class FileController {
     try {
       const [handle] = await window.showOpenFilePicker({ multiple: false });
       const file = await handle.getFile();
-      await this.load(await file.text(), file.name, handle, file.lastModified);
+      const html = await file.text();
+      await this.load(html, file.name, handle, file.lastModified, {
+        fileSignature: this.signature(file, html),
+      });
     } catch (error) {
       if (error.name !== 'AbortError') toast(`无法打开文件：${error.message}`, 'error');
     }
   }
 
-  async importFile(file) { await this.load(await file.text(), file.name, null, null); }
+  signature(file, text) {
+    return {
+      size: Number(file?.size ?? new Blob([text]).size),
+      mtime: Number(file?.lastModified || 0),
+      hash: contentFingerprint(text),
+    };
+  }
 
-  async load(html, name, handle = null, mtime = null) {
+  signaturesMatch(left, right) {
+    return Boolean(left && right && left.size === right.size && left.hash === right.hash);
+  }
+
+  async importFile(file) {
+    const html = await file.text();
+    await this.load(html, file.name, null, null);
+  }
+
+  async load(html, name, handle = null, mtime = null, options = {}) {
     model.fileName = name || 'untitled.html';
     model.fileHandle = handle;
     model.fileMtime = mtime;
+    model.fileSignature = options.fileSignature || null;
+    model.documentId = options.documentId
+      || `${handle ? 'file' : 'import'}:${model.fileName}:${contentFingerprint(html)}`;
     model.sourceText = html;
     activateVisualWorkspace();
     await canvas.load(html);
-    model.setDirty(false);
+    const canonical = model.serializeDocument();
+    model.sourceText = canonical;
+    if (options.recovered) {
+      model.savedHtml = String(options.savedHtml || '');
+      model.updateDirty(canonical);
+    } else model.markSaved(canonical);
     showStudio();
     updateDocumentState();
     byId('refresh-button').disabled = !handle;
     byId('diff-button').disabled = !handle;
-    toast(handle ? `已关联 ${model.fileName}` : `已导入 ${model.fileName}`, 'success');
+    const relativeReferences = countProjectRelativeReferences(html);
+    const loadedMessage = handle ? `已关联 ${model.fileName}` : `已导入 ${model.fileName}`;
+    if (relativeReferences) {
+      toast(`${loadedMessage}；检测到 ${relativeReferences} 个相对路径，请设置 <base> 或改用内联资源`, 'error');
+      setStatus(`文档已载入 · ${relativeReferences} 个相对资源可能需要路径基址`);
+    } else toast(loadedMessage, 'success');
   }
 
   async newDocument() {
     model.fileName = 'untitled.html';
     model.fileHandle = null;
     model.fileMtime = null;
+    model.fileSignature = null;
+    model.documentId = `new:${window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
     model.sourceText = EMPTY_DOCUMENT;
     activateVisualWorkspace();
     await canvas.load(EMPTY_DOCUMENT);
-    model.setDirty(false);
+    model.markSaved(model.serializeDocument());
     showStudio();
     updateDocumentState();
     byId('refresh-button').disabled = true;
@@ -1846,40 +2582,45 @@ class FileController {
   async save() {
     const html = model.currentText();
     if (!html) return;
-    if (!model.fileHandle) return this.export(html);
+    if (!model.fileHandle) return this.export(html, { markSaved: true });
     try {
       const latest = await model.fileHandle.getFile();
-      if (model.fileMtime && latest.lastModified > model.fileMtime) {
+      const latestText = await latest.text();
+      const latestSignature = this.signature(latest, latestText);
+      if (model.fileSignature && !this.signaturesMatch(latestSignature, model.fileSignature)) {
         const overwrite = await modal.confirm('磁盘文件已变化', '文件在其他程序中被修改。是否覆盖磁盘版本？', '仍然覆盖');
         if (!overwrite) return;
       }
       const writable = await model.fileHandle.createWritable();
       await writable.write(html);
       await writable.close();
-      model.sourceText = html;
-      model.fileMtime = (await model.fileHandle.getFile()).lastModified;
-      model.setDirty(false);
+      const savedFile = await model.fileHandle.getFile();
+      model.fileMtime = savedFile.lastModified;
+      model.fileSignature = this.signature(savedFile, html);
+      model.markSaved(html);
       toast('已保存到本地文件', 'success');
     } catch (error) { toast(`保存失败：${error.message}`, 'error'); }
   }
 
-  export(html = model.currentText()) {
+  export(html = model.currentText(), options = {}) {
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
     anchor.download = model.fileName || 'untitled.html';
     anchor.click();
-    URL.revokeObjectURL(url);
-    model.sourceText = html;
-    model.setDirty(false);
-    toast(`已导出 ${anchor.download}`, 'success');
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    if (options.markSaved) model.markSaved(html);
+    toast(`${options.markSaved ? '已保存' : '已导出副本'} ${anchor.download}`, 'success');
   }
 
   async refresh() {
     if (!model.fileHandle) return;
     if (model.dirty && !(await modal.confirm('重新读取文件', '当前未保存修改会被磁盘版本替换。', '放弃修改'))) return;
     const file = await model.fileHandle.getFile();
-    await this.load(await file.text(), file.name, model.fileHandle, file.lastModified);
+    const html = await file.text();
+    await this.load(html, file.name, model.fileHandle, file.lastModified, {
+      fileSignature: this.signature(file, html),
+    });
   }
 
   async showDiff() {
@@ -1904,8 +2645,8 @@ class AiController {
     this.reviews = [];
     this.pendingReview = null;
     this.modelRequestId = 0;
+    this.modelsLoadedFor = '';
     this.loadSettings();
-    this.loadModels({ selected: this.savedModel });
   }
 
   open() {
@@ -1915,6 +2656,7 @@ class AiController {
     this.updateTarget();
     requestAnimationFrame(() => { canvas.updateOverlay(); updateCanvasInfo(); });
     byId('ai-input').focus();
+    if (this.modelsLoadedFor !== byId('ai-cli').value) this.loadModels({ selected: this.savedModel });
   }
 
   close() {
@@ -2014,11 +2756,12 @@ class AiController {
     status.dataset.state = 'loading';
     status.textContent = `正在读取 ${cli === 'claude' ? 'Claude Code CLI' : 'Codex CLI'} 模型…`;
     try {
-      const response = await fetch(this.modelEndpoint(cli, Boolean(options.refresh)));
+      const response = await apiFetch(this.modelEndpoint(cli, Boolean(options.refresh)));
       if (!response.ok) throw await this.responseError(response);
       const data = await response.json();
       if (requestId !== this.modelRequestId || cli !== byId('ai-cli').value) return;
       this.renderModelOptions(data.models || [], selected);
+      this.modelsLoadedFor = cli;
       status.dataset.state = data.complete === false ? 'warning' : 'ready';
       status.textContent = data.complete === false
         ? `已读取 ${data.models?.length || 0} 个模型候选，可手动输入其他模型 ID`
@@ -2045,7 +2788,7 @@ class AiController {
     byId('ai-cli').value = settings.cli || 'codex';
     this.savedModel = settings.model || '';
     this.renderModelOptions([], this.savedModel);
-    byId('ai-fallback').checked = settings.fallback !== false;
+    byId('ai-fallback').checked = settings.fallback === true;
   }
 
   saveSettings(notify = true) {
@@ -2060,7 +2803,7 @@ class AiController {
 
   selectedContext() {
     if (!model.selected) return null;
-    return { target: canvas.describe(model.selected), path: model.elementPath(), html: model.selected.outerHTML };
+    return { target: canvas.describe(model.selected), path: model.elementPath(), html: serializeEditableElement(model.selected) };
   }
 
   async test() {
@@ -2071,7 +2814,7 @@ class AiController {
     button.disabled = true;
     button.textContent = '验证中…';
     try {
-      const response = await fetch(byId('ai-endpoint').value.trim() || '/api/ai-design', {
+      const response = await apiFetch(byId('ai-endpoint').value.trim() || '/api/ai-design', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2132,7 +2875,7 @@ class AiController {
       stream: true,
     };
     try {
-      const response = await fetch(byId('ai-endpoint').value.trim() || '/api/ai-design', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal });
+      const response = await apiFetch(byId('ai-endpoint').value.trim() || '/api/ai-design', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload), signal: controller.signal });
       if (!response.ok) throw await this.responseError(response);
       let finalHtml = '';
       if (response.body?.getReader) {
@@ -2174,17 +2917,52 @@ class AiController {
       }
       if (!finalHtml) throw new Error('没有从 CLI 输出中找到完整 HTML');
       const before = model.serializeDocument();
-      model.sourceText = finalHtml;
-      activateVisualWorkspace();
-      await canvas.load(finalHtml, { preserveHistory: true });
-      model.history = model.history.slice(0, model.cursor + 1);
-      model.history.push({ html: finalHtml, path: null, label: 'AI Design' });
-      model.cursor = model.history.length - 1;
-      if (!before) model.resetHistory(finalHtml);
-      model.setDirty(true);
-      model.scheduleAutosave();
-      model.signal('history');
-      progress.textContent = '页面已应用。可以继续在画布上精修。';
+      const candidateDocument = new DOMParser().parseFromString(finalHtml, 'text/html');
+      if (!candidateDocument.documentElement || !candidateDocument.head || !candidateDocument.body) {
+        throw new Error('CLI 返回的候选内容不是完整 HTML 文档');
+      }
+      if (selected?.path) {
+        const candidateElement = resolvePathInDocument(candidateDocument, selected.path);
+        if (!candidateElement || FORBIDDEN_SELECT.has(candidateElement.tagName)) {
+          throw new Error('候选内容中无法定位原选中组件，当前页面未被修改');
+        }
+        const currentComponentHtml = serializeEditableElement(model.selected);
+        const accepted = await modal.reviewChange(
+          `检查${componentInfo(model.selected).name}修改`,
+          currentComponentHtml,
+          candidateElement.outerHTML,
+          htmlSafetyWarnings(currentComponentHtml, candidateElement.outerHTML),
+        );
+        if (!accepted) {
+          progress.textContent = '已取消应用候选修改，当前页面没有变化。';
+          return;
+        }
+        const replacement = prepareEditableFragment(candidateElement.outerHTML, model.doc)
+          .find(node => node.nodeType === Node.ELEMENT_NODE);
+        if (!replacement) throw new Error('候选组件无法转换为可编辑元素');
+        model.selected.replaceWith(replacement);
+        model.select(replacement);
+        model.checkpoint('AI Design · 组件');
+        progress.textContent = '组件修改已应用。可以继续在画布上精修。';
+      } else {
+        const accepted = await modal.reviewChange(
+          '检查整页修改',
+          before,
+          finalHtml,
+          htmlSafetyWarnings(before, finalHtml),
+        );
+        if (!accepted) {
+          progress.textContent = '已取消应用候选页面，当前页面没有变化。';
+          return;
+        }
+        activateVisualWorkspace();
+        await canvas.load(finalHtml, { preserveHistory: true });
+        const appliedHtml = model.serializeDocument();
+        model.sourceText = appliedHtml;
+        if (!before) model.resetHistory(appliedHtml);
+        else model.pushHistory(appliedHtml, 'AI Design', null);
+        progress.textContent = '页面修改已应用。可以继续在画布上精修。';
+      }
       const cliChanged = activeCli && activeCli !== byId('ai-cli').value;
       if (activeCli) byId('ai-cli').value = activeCli;
       if (cliChanged) await this.loadModels({ selected: '' });
@@ -2295,7 +3073,7 @@ async function saveSnippet() {
   const name = await modal.prompt('保存为片段', '为当前元素输入一个名称。', canvas.describe(model.selected));
   if (!name) return;
   const snippets = readSnippets();
-  snippets.unshift({ id: crypto.randomUUID(), name, html: model.selected.outerHTML });
+  snippets.unshift({ id: crypto.randomUUID(), name, html: serializeEditableElement(model.selected) });
   localStorage.setItem(STORAGE.snippets, JSON.stringify(snippets.slice(0, 50)));
   renderSnippets();
   toast('片段已保存', 'success');
@@ -2364,11 +3142,8 @@ async function commitSourceChanges(generation = modeGeneration) {
   const loadedDocument = await canvas.load(model.sourceText, { preserveHistory: true });
   if (!loadedDocument || generation !== modeGeneration) return false;
   if (sourceChanged) {
-    model.history = model.history.slice(0, model.cursor + 1);
-    model.history.push({ html: model.sourceText, path: null, label: '源码编辑' });
-    model.cursor = model.history.length - 1;
-    model.setDirty(true);
-    model.scheduleAutosave();
+    model.sourceText = model.serializeDocument();
+    model.pushHistory(model.sourceText, '源码编辑', null);
   }
   renderTree();
   return true;
@@ -2450,9 +3225,28 @@ function exitPreview() { togglePreview(false); }
 
 function externalPreview() {
   const html = model.currentText();
-  const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-  window.open(url, '_blank', 'noopener');
-  window.setTimeout(() => URL.revokeObjectURL(url), 15000);
+  if (!('BroadcastChannel' in window)) {
+    toast('当前浏览器不支持安全的新标签页预览，请使用浏览模式', 'error');
+    return;
+  }
+  const channelId = window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const channel = new BroadcastChannel(`html-designer-preview-${channelId}`);
+  let closed = false;
+  const finish = () => {
+    if (closed) return;
+    closed = true;
+    window.clearInterval(retry);
+    window.clearTimeout(timeout);
+    channel.close();
+  };
+  channel.onmessage = (event) => {
+    if (event.data?.type === 'ready') channel.postMessage({ type: 'render', html });
+    if (event.data?.type === 'rendered') finish();
+  };
+  const retry = window.setInterval(() => channel.postMessage({ type: 'render', html }), 500);
+  const timeout = window.setTimeout(finish, 15000);
+  window.open(`external-preview.html?channel=${encodeURIComponent(channelId)}`, '_blank', 'noopener');
+  toast('已在隔离沙箱中打开预览', 'success');
 }
 
 const DEVICE_VIEWPORTS = Object.freeze({
@@ -2463,9 +3257,64 @@ const DEVICE_VIEWPORTS = Object.freeze({
 let canvasZoom = 1;
 let canvasFitMode = true;
 let canvasFitFrame = 0;
+let canvasPageMode = false;
+let canvasPageHeight = 0;
+let canvasPageMeasureFrame = 0;
+
+function currentBaseViewport() {
+  return DEVICE_VIEWPORTS[byId('canvas-shell')?.dataset.device] || DEVICE_VIEWPORTS.desktop;
+}
 
 function currentViewport() {
-  return DEVICE_VIEWPORTS[byId('canvas-shell')?.dataset.device] || DEVICE_VIEWPORTS.desktop;
+  const viewport = currentBaseViewport();
+  if (canvasPageMode && model.mode === 'visual' && canvasPageHeight > viewport.height) {
+    return { ...viewport, height: canvasPageHeight, label: `${viewport.label} · 整页` };
+  }
+  return viewport;
+}
+
+function applyCanvasHeight(height) {
+  const pixels = Math.max(currentBaseViewport().height, Math.min(20000, Math.round(Number(height) || 0)));
+  byId('canvas-stage')?.style.setProperty('--canvas-height', `${pixels}px`);
+  canvasPageHeight = pixels;
+}
+
+function scheduleFullPageMeasurement() {
+  window.cancelAnimationFrame(canvasPageMeasureFrame);
+  canvasPageMeasureFrame = window.requestAnimationFrame(() => {
+    if (!canvasPageMode || model.mode !== 'visual' || !model.doc?.documentElement) return;
+    const base = currentBaseViewport();
+    byId('canvas-stage')?.style.setProperty('--canvas-height', `${base.height}px`);
+    canvasPageMeasureFrame = window.requestAnimationFrame(() => {
+      const body = model.doc.body;
+      const height = Math.max(
+        base.height,
+        model.doc.documentElement.scrollHeight,
+        body?.scrollHeight || 0,
+        body?.offsetHeight || 0,
+      );
+      applyCanvasHeight(height);
+      fitCanvas(false);
+      updateCanvasInfo();
+      canvas.updateOverlay();
+    });
+  });
+}
+
+function toggleCanvasPageMode() {
+  canvasPageMode = !canvasPageMode;
+  byId('canvas-page-button').classList.toggle('active', canvasPageMode);
+  byId('canvas-page-button').setAttribute('aria-pressed', String(canvasPageMode));
+  if (canvasPageMode) {
+    scheduleFullPageMeasurement();
+    setStatus('完整页面画板 · 保持设备宽度并展开页面高度');
+  } else {
+    canvasPageHeight = 0;
+    byId('canvas-stage').style.removeProperty('--canvas-height');
+    fitCanvas(false);
+    updateCanvasInfo();
+    setStatus('设备视口画板 · 使用固定设备宽高');
+  }
 }
 
 function updateCanvasInfo() {
@@ -2473,7 +3322,7 @@ function updateCanvasInfo() {
   const iframe = shell?.classList.contains('browsing') ? byId('browse-canvas') : byId('design-canvas');
   if (!shell || !iframe) return;
   const device = shell.dataset.device || 'desktop';
-  const viewport = DEVICE_VIEWPORTS[device] || DEVICE_VIEWPORTS.desktop;
+  const viewport = currentViewport();
   const icon = pick('use', byId('canvas-info'));
   if (icon) icon.setAttribute('href', `#i-${device === 'desktop' ? 'monitor' : device}`);
   byId('canvas-device-label').textContent = viewport.label;
@@ -2498,8 +3347,9 @@ function fitCanvas(announce = true) {
   const availableWidth = Math.max(220, workbench.clientWidth - 48);
   const availableHeight = Math.max(220, workbench.clientHeight - 124);
   const scale = Math.min(1, availableWidth / viewport.width, availableHeight / viewport.height);
+  const pageScale = Math.min(1, availableWidth / viewport.width);
   canvasFitMode = true;
-  setCanvasZoom(scale, announce, true);
+  setCanvasZoom(canvasPageMode && model.mode === 'visual' ? pageScale : scale, announce, true);
 }
 
 function scheduleCanvasViewportUpdate() {
@@ -2517,7 +3367,8 @@ function setCanvasDevice(device) {
   if (!DEVICE_VIEWPORTS[device]) return;
   byId('canvas-shell').dataset.device = device;
   byId('canvas-stage').dataset.device = device;
-  fitCanvas(false);
+  if (canvasPageMode) scheduleFullPageMeasurement();
+  else fitCanvas(false);
 }
 
 function toggleRail(side) {
@@ -2638,21 +3489,29 @@ function applyTheme(theme) {
 
 function toggleTheme() { applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light'); }
 
+let recoverableDraft = null;
+
 function bindActions() {
   byId('action-open').onclick = () => files.open();
   byId('action-import').onclick = () => files.picker.click();
   byId('action-new').onclick = () => files.newDocument();
   byId('action-ai').onclick = async () => { await files.newDocument(); ai.open(); };
   byId('action-restore').onclick = async () => {
-    const draft = safeJson(localStorage.getItem(STORAGE.draft), null);
-    if (draft?.html) await files.load(draft.html, draft.name || 'recovered.html');
+    const draft = recoverableDraft || await draftStore.latest();
+    if (draft?.html) {
+      await files.load(draft.html, draft.name || 'recovered.html', null, null, {
+        recovered: true,
+        documentId: draft.id,
+        savedHtml: draft.savedHtml,
+      });
+    }
   };
   byId('welcome-theme').onclick = toggleTheme;
   byId('theme-button').onclick = toggleTheme;
   byId('home-button').onclick = showWelcome;
   byId('open-button').onclick = () => files.open();
   byId('import-button').onclick = () => files.picker.click();
-  byId('export-button').onclick = () => files.export();
+  byId('export-button').onclick = () => files.export(model.currentText(), { markSaved: false });
   byId('save-button').onclick = () => files.save();
   byId('refresh-button').onclick = () => files.refresh();
   byId('diff-button').onclick = () => files.showDiff();
@@ -2692,10 +3551,11 @@ function bindActions() {
   byId('zoom-in-button').onclick = () => setCanvasZoom(canvasZoom + .1);
   byId('zoom-value').onclick = () => setCanvasZoom(1);
   byId('zoom-fit-button').onclick = fitCanvas;
-  byId('copy-html-button').onclick = () => { if (model.selected) copyText(model.selected.outerHTML, '已复制元素 HTML'); };
+  byId('canvas-page-button').onclick = toggleCanvasPageMode;
+  byId('copy-html-button').onclick = () => { if (model.selected) copyText(serializeEditableElement(model.selected), '已复制元素 HTML'); };
   byId('copy-selector-button').onclick = () => { if (model.selected) copyText(cssSelectorPath(), '已复制 CSS 选择器'); };
   byId('summary-edit-button').onclick = () => canvas.runCommand('edit');
-  byId('summary-copy-button').onclick = () => { if (model.selected) copyText(model.selected.outerHTML, '已复制元素 HTML'); };
+  byId('summary-copy-button').onclick = () => { if (model.selected) copyText(serializeEditableElement(model.selected), '已复制元素 HTML'); };
   byId('summary-duplicate-button').onclick = () => canvas.runCommand('duplicate');
   pickAll('#mode-switch button').forEach((button) => { button.onclick = () => setMode(button.dataset.mode); });
   pickAll('.device-button').forEach((button) => {
@@ -2706,13 +3566,19 @@ function bindActions() {
       window.setTimeout(() => { canvas.updateOverlay(); updateCanvasInfo(); }, 190);
     };
   });
-  byId('source-editor').oninput = () => { model.sourceText = byId('source-editor').value; model.setDirty(true); model.scheduleAutosave(); updateSourceStats(); };
+  byId('source-editor').oninput = () => {
+    model.sourceText = byId('source-editor').value;
+    model.updateDirty(model.sourceText);
+    model.scheduleAutosave();
+    updateSourceStats();
+  };
 }
 
 function bindKeyboard() {
   document.addEventListener('keydown', (event) => {
     const command = event.metaKey || event.ctrlKey;
     const field = ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName) || event.target.isContentEditable;
+    if (event.key === 'Escape' && canvas.moveSession) { event.preventDefault(); canvas.endMove(true); return; }
     if (event.key === 'Escape' && byId('modal-root').childElementCount && !pick('.command-card', byId('modal-root'))) { event.preventDefault(); modal.close(); return; }
     if (event.key === 'Escape' && !byId('ai-drawer').hidden) { event.preventDefault(); ai.close(); return; }
     if (command && event.key.toLowerCase() === 'k') { event.preventDefault(); openCommandPalette(); return; }
@@ -2721,6 +3587,17 @@ function bindKeyboard() {
     if (field) return;
     if (command && event.key.toLowerCase() === 'z') { event.preventDefault(); model.travel(event.shiftKey ? 1 : -1); return; }
     if (command && event.key.toLowerCase() === 'd') { event.preventDefault(); canvas.runCommand('duplicate'); return; }
+    if (!command && !event.altKey && !event.shiftKey && /^Arrow(Left|Right|Up|Down)$/.test(event.key) && model.selected) {
+      event.preventDefault();
+      const offsets = {
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0],
+        ArrowUp: [0, -1],
+        ArrowDown: [0, 1],
+      };
+      canvas.nudgeSelected(...offsets[event.key]);
+      return;
+    }
     if (event.shiftKey && event.key === 'ArrowUp' && model.selected) { event.preventDefault(); canvas.runCommand('parent'); return; }
     if (event.altKey && event.key === 'ArrowUp' && model.selected) { event.preventDefault(); canvas.runCommand('before'); return; }
     if (event.altKey && event.key === 'ArrowDown' && model.selected) { event.preventDefault(); canvas.runCommand('after'); return; }
@@ -2787,7 +3664,7 @@ model.addEventListener('history', () => {
   if (model.history[model.cursor]?.label) setStatus(model.history[model.cursor].label);
 });
 
-function init() {
+async function init() {
   applyTheme(localStorage.getItem(STORAGE.theme) || 'dark');
   applyModeLayout('visual');
   bindTabs();
@@ -2800,11 +3677,14 @@ function init() {
   renderInspectors();
   updateSourceStats();
   updateDocumentState();
-  const draft = safeJson(localStorage.getItem(STORAGE.draft), null);
-  if (draft?.html) {
+  recoverableDraft = await draftStore.latest();
+  if (recoverableDraft?.html) {
     byId('action-restore').hidden = false;
-    byId('restore-meta').textContent = `${draft.name || 'untitled.html'} · ${new Date(draft.savedAt).toLocaleString()}`;
+    byId('restore-meta').textContent = `${recoverableDraft.name || 'untitled.html'} · ${new Date(recoverableDraft.savedAt).toLocaleString()}`;
   }
 }
 
-init();
+init().catch((error) => {
+  console.error('HTML Designer initialization failed', error);
+  toast('初始化失败，请刷新页面重试', 'error');
+});

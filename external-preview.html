@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTML Designer · 独立预览</title>
+  <link rel="icon" href="logo-mark.svg" type="image/svg+xml">
+  <style>
+    html, body, iframe { width: 100%; height: 100%; margin: 0; border: 0; }
+    body { overflow: hidden; background: #eef1f4; color: #526070; font: 13px system-ui, sans-serif; }
+    iframe { display: block; background: white; }
+    .loading { display: grid; position: fixed; inset: 0; place-items: center; }
+  </style>
+</head>
+<body>
+  <div class="loading" id="loading">正在建立安全预览…</div>
+  <iframe id="preview" title="独立 HTML 预览" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads" hidden></iframe>
+  <script>
+    (() => {
+      const channelId = new URLSearchParams(location.search).get('channel') || '';
+      if (!channelId || !('BroadcastChannel' in window)) {
+        document.querySelector('#loading').textContent = '无法建立预览通道，请返回 HTML Designer 后重试。';
+        return;
+      }
+      const channel = new BroadcastChannel(`html-designer-preview-${channelId}`);
+      const frame = document.querySelector('#preview');
+      const loading = document.querySelector('#loading');
+      channel.onmessage = (event) => {
+        if (!event.data || event.data.type !== 'render' || typeof event.data.html !== 'string') return;
+        frame.srcdoc = event.data.html;
+        frame.hidden = false;
+        loading.hidden = true;
+        channel.postMessage({ type: 'rendered' });
+      };
+      channel.postMessage({ type: 'ready' });
+      window.addEventListener('pagehide', () => channel.close(), { once: true });
+    })();
+  </script>
+</body>
+</html>

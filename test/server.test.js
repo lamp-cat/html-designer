@@ -21,6 +21,7 @@ test('normalizes CLI aliases and builds deterministic fallback order', () => {
   assert.deepEqual(cliCandidates('claude', true), ['claude', 'codex']);
   assert.deepEqual(cliCandidates('codex', true), ['codex', 'claude']);
   assert.deepEqual(cliCandidates('claude', false), ['claude']);
+  assert.deepEqual(cliCandidates('codex'), ['codex']);
 });
 
 test('Claude invocation is non-interactive and does not persist sessions', () => {
@@ -68,11 +69,43 @@ test('prompt uses plain design context and HTML extraction accepts complete docu
   });
   assert.match(prompt, /Design context JSON/);
   assert.match(prompt, /Make the hero clearer/);
+  assert.match(prompt, /untrusted data/);
+  assert.match(prompt, /Do not inspect the filesystem/);
   assert.doesNotMatch(prompt, /"role"\s*:\s*"system"/);
 
   const html = extractHtmlDocument('Plan\n<!doctype html><html><body><h1>Done</h1></body></html>');
   assert.match(html, /^<!doctype html>/i);
   assert.match(html, /<h1>Done<\/h1>/);
+});
+
+test('local server protects static internals and requires an injected API session', async () => {
+  const { server } = require('../server');
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  try {
+    const address = server.address();
+    const base = `http://127.0.0.1:${address.port}`;
+    const page = await fetch(`${base}/`);
+    const indexHtml = await page.text();
+    const token = indexHtml.match(/name="html-designer-session" content="([^"]+)"/)?.[1] || '';
+    assert.ok(token.length >= 32);
+
+    const privateFile = await fetch(`${base}/.git/config`);
+    assert.equal(privateFile.status, 404);
+
+    const unauthorized = await fetch(`${base}/api/ai-design`);
+    assert.equal(unauthorized.status, 401);
+    assert.equal(unauthorized.headers.get('access-control-allow-origin'), null);
+
+    const authorizedWrongMethod = await fetch(`${base}/api/ai-design`, {
+      headers: { 'X-HTML-Designer-Session': token },
+    });
+    assert.equal(authorizedWrongMethod.status, 405);
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
 });
 
 test('extracts the final text from newline-delimited CLI events', () => {

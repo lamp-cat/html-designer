@@ -9,13 +9,18 @@ const app = fs.readFileSync(path.join(root, 'js', 'studio-app.js'), 'utf8');
 const previewHost = fs.readFileSync(path.join(root, 'preview-host.html'), 'utf8');
 const polish = fs.readFileSync(path.join(root, 'css', 'studio-polish.css'), 'utf8');
 
-test('separates the editable DOM canvas from the isolated interactive browser canvas', () => {
+test('separates the guarded editable canvas from the isolated interactive browser canvas', () => {
   const editFrame = index.match(/<iframe id="design-canvas"[^>]*>/)?.[0] || '';
   const browseFrame = index.match(/<iframe id="browse-canvas"[^>]*>/)?.[0] || '';
   assert.match(editFrame, /allow-same-origin/);
-  assert.doesNotMatch(editFrame, /allow-scripts/);
+  assert.match(editFrame, /allow-scripts/);
   assert.match(browseFrame, /allow-scripts/);
   assert.doesNotMatch(browseFrame, /allow-same-origin/);
+  assert.match(app, /script-src 'none'/);
+  assert.match(app, /data-hd-inert-events/);
+  assert.match(app, /data-hd-script-placeholder/);
+  assert.match(app, /placeholder\.content\.append/);
+  assert.match(app, /restoreEditableArtifacts/);
   assert.match(index, /data-mode="visual"/);
   assert.match(index, /data-mode="browse"/);
   assert.match(index, /data-mode="source"/);
@@ -78,4 +83,52 @@ test('keeps a fixed device viewport and fits it without changing HTML layout wid
   assert.match(app, /canvasFitMode/);
   assert.match(polish, /width: var\(--canvas-width\); height: var\(--canvas-height\)/);
   assert.doesNotMatch(polish, /calc\(100% \/ var\(--canvas-scale\)\)/);
+});
+
+test('tracks saved content independently from undo position and bounds every history source', () => {
+  assert.match(app, /this\.savedHtml =/);
+  assert.match(app, /updateDirty\(html = this\.currentText\(\)\)/);
+  assert.match(app, /String\(html \|\| ''\) !== String\(this\.savedHtml \|\| ''\)/);
+  assert.match(app, /pushHistory\(html, label/);
+  assert.doesNotMatch(app, /this\.setDirty\(next !== 0\)/);
+  assert.doesNotMatch(app, /model\.history\.push\(\{ html: model\.sourceText/);
+});
+
+test('uses an isolated external preview and reviews AI candidates before applying', () => {
+  assert.match(app, /external-preview\.html\?channel=/);
+  assert.match(app, /new BroadcastChannel/);
+  assert.doesNotMatch(app, /window\.open\(url, '_blank'/);
+  assert.match(app, /modal\.reviewChange/);
+  assert.match(app, /AI Design · 组件/);
+  assert.match(app, /resolvePathInDocument/);
+  assert.match(app, /serializeEditableElement\(model\.selected\)/);
+  assert.match(app, /prepareEditableFragment\(candidateElement\.outerHTML/);
+});
+
+test('preserves nested component markup and duplicate identity relationships', () => {
+  assert.match(app, /name: 'richText'/);
+  assert.match(app, /serializeEditableElement\(textTarget, true\)/);
+  assert.match(app, /prepareEditableFragment\(values\.richText/);
+  assert.match(app, /prepareDuplicate\(copy\)/);
+  assert.match(app, /aria-labelledby/);
+  assert.doesNotMatch(app, /element\.replaceChildren\(\.\.\.lines\.map/);
+});
+
+test('moves selected components freely without limiting them to DOM drop targets', () => {
+  assert.match(index, /id="selection-frame"[^>]*tabindex="-1"/);
+  assert.match(index, /data-command="reset-position"/);
+  assert.match(index, /aria-label="自由移动组件"/);
+  assert.match(app, /freeTranslateOffset\(element/);
+  assert.match(app, /setFreePosition\(element, x, y/);
+  assert.match(app, /style\.setProperty\('translate'/);
+  assert.match(app, /自由移动组件 · 按住 Shift/);
+  assert.match(app, /nudgeSelected\(dx, dy\)/);
+  assert.match(app, /group\('自由位置'/);
+  const freeMove = app.match(/beginMove\(event,[\s\S]*?\n  updateResize\(event\)/)?.[0] || '';
+  assert.doesNotMatch(freeMove, /target\.before|target\.after|target\.append/);
+});
+
+test('warns when a single-file import depends on unresolved project paths', () => {
+  assert.match(app, /function countProjectRelativeReferences/);
+  assert.match(app, /个相对路径，请设置 <base> 或改用内联资源/);
 });

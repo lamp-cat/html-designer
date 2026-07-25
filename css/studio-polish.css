@@ -258,7 +258,10 @@ body.dragging-block iframe { pointer-events: none; }
 .canvas-hud .icon { width: 14px; height: 14px; }
 .canvas-stage { border-radius: 3px; transition: width 180ms ease, height 180ms ease; }
 .canvas-shell { width: var(--canvas-width); height: var(--canvas-height); transform: scale(var(--canvas-scale)); transform-origin: top left; transition: transform 180ms ease; }
-.selection-frame { border-width: calc(2px * var(--canvas-ui-scale)); border-color: var(--focus); border-radius: 1px; box-shadow: 0 0 0 calc(1px * var(--canvas-ui-scale)) rgba(255,255,255,.8) inset, 0 0 0 calc(1px * var(--canvas-ui-scale)) rgba(67,92,190,.15); }
+.selection-frame { border-width: calc(2px * var(--canvas-ui-scale)); border-color: var(--focus); border-radius: 1px; box-shadow: 0 0 0 calc(1px * var(--canvas-ui-scale)) rgba(255,255,255,.8) inset, 0 0 0 calc(1px * var(--canvas-ui-scale)) rgba(67,92,190,.15); cursor: move; pointer-events: auto; touch-action: none; }
+.selection-frame:focus { outline: none; }
+.selection-layer.moving .selection-frame { border-color: #ff6d91; background: color-mix(in srgb, #ff6d91 8%, transparent); cursor: grabbing; }
+.selection-layer.editing .selection-frame { pointer-events: none; }
 .selection-layer.editing .selection-frame { border-color: var(--accent-2); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-2) 22%, transparent); }
 .selection-layer.editing .selection-label { background: var(--accent-2); color: #07120a; }
 .selection-layer.editing .selection-label::after { content: " · EDIT"; font: 7px var(--mono); letter-spacing: .08em; }
@@ -312,6 +315,13 @@ body.dragging-block iframe { pointer-events: none; }
 #ai-model-status[data-state="ready"] { color: var(--accent-2); }
 #ai-model-status[data-state="warning"] { color: var(--warning); }
 #ai-model-status[data-state="error"] { color: var(--danger); }
+.ai-review-card { width: min(1120px, calc(100vw - 42px)); }
+.ai-review-card .modal-body { display: grid; gap: 12px; min-height: 0; }
+.change-warnings, .change-ready { padding: 11px 13px; border: 1px solid var(--line); border-radius: 9px; font-size: 10px; line-height: 1.6; }
+.change-warnings { border-color: color-mix(in srgb, var(--warning) 42%, var(--line)); background: color-mix(in srgb, var(--warning) 9%, var(--panel)); color: var(--warning); }
+.change-warnings strong { color: var(--ink); }
+.change-warnings ul { margin: 5px 0 0; padding-left: 18px; }
+.change-ready { border-color: color-mix(in srgb, var(--accent-2) 36%, var(--line)); background: color-mix(in srgb, var(--accent-2) 7%, var(--panel)); color: var(--accent-2); }
 .source-shell { grid-template-rows: 44px minmax(0,1fr); }
 .source-head > span { display: inline-flex; align-items: center; gap: 8px; }
 .source-head > div { display: flex; gap: 15px; }
@@ -341,6 +351,10 @@ body.dragging-block iframe { pointer-events: none; }
 .box-model-section > header { display: flex; margin: 0 0 10px; align-items: center; justify-content: space-between; }
 .box-model-section h3 { margin: 0; color: var(--muted); font-size: 9px; letter-spacing: .12em; }
 .box-model-section header small { color: var(--muted); font: 8px var(--mono); }
+.free-position-actions { display: grid; margin-top: 7px; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px; }
+.free-position-actions small { color: var(--muted); font-size: 8px; line-height: 1.45; }
+.free-position-actions button { min-height: 28px; padding: 0 9px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel-2); color: var(--ink); font-size: 8px; cursor: pointer; }
+.free-position-actions button:hover { border-color: var(--line-strong); color: var(--accent); }
 .box-layer { position: relative; min-height: 116px; padding: 22px 28px; border: 1px solid color-mix(in srgb, var(--warning) 30%, var(--line)); border-radius: 8px; background: color-mix(in srgb, var(--warning) 8%, transparent); }
 .box-layer .box-layer { width: 100%; min-height: 0; height: 100%; padding: 20px 25px; }
 .box-layer.border-layer { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); background: color-mix(in srgb, var(--accent) 7%, var(--panel)); }

@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="html-designer-session" content="__HTML_DESIGNER_SESSION__">
   <title>HTML Designer — 本地优先的可视化 HTML 工作台</title>
   <meta name="description" content="HTML Designer 是一个本地优先的可视化 HTML 工作台，支持画布编辑、源码模式、本地保存和 AI 辅助设计。">
   <meta name="author" content="lamp-cat">
@@ -32,7 +33,7 @@
   </script>
   <link rel="icon" href="logo-mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/studio.css?v=20260717e">
-  <link rel="stylesheet" href="css/studio-polish.css?v=20260717e">
+  <link rel="stylesheet" href="css/studio-polish.css?v=20260725a">
 </head>
 <body>
   <svg class="icon-sprite" aria-hidden="true">
@@ -244,22 +245,24 @@
           <button class="tooltip" id="zoom-in-button" type="button" data-tooltip="放大"><svg class="icon"><use href="#i-zoom-in"></use></svg></button>
           <span></span>
           <button class="tooltip" id="zoom-fit-button" type="button" aria-label="等比适应整个视口" data-tooltip="等比适应整个视口"><svg class="icon"><use href="#i-fit"></use></svg></button>
+          <button class="tooltip" id="canvas-page-button" type="button" aria-label="切换完整页面画板" data-tooltip="完整页面画板"><svg class="icon"><use href="#i-layout"></use></svg></button>
           <span></span>
           <button class="tooltip" id="hud-insert-button" type="button" data-tooltip="快速插入"><svg class="icon"><use href="#i-boxes"></use></svg></button>
         </div>
         <div class="canvas-stage" id="canvas-stage" data-device="desktop">
           <div class="canvas-shell" id="canvas-shell" data-device="desktop">
-            <iframe id="design-canvas" title="HTML 设计画布" sandbox="allow-same-origin allow-forms"></iframe>
+            <iframe id="design-canvas" title="HTML 设计画布" sandbox="allow-same-origin allow-scripts allow-forms"></iframe>
             <iframe id="browse-canvas" title="HTML 浏览画布" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-downloads" src="about:blank" hidden></iframe>
             <div class="selection-layer" id="selection-layer" hidden>
-              <div class="selection-frame" id="selection-frame"></div>
+              <div class="selection-frame" id="selection-frame" tabindex="-1" aria-label="拖动选中组件"></div>
               <div class="selection-label" id="selection-label"></div>
               <div class="selection-size" id="selection-size"></div>
               <div class="selection-actions" id="selection-actions">
                 <span class="selection-menu-summary"><small id="selection-component-kind">通用元素</small><strong id="selection-menu-title">元素</strong></span>
                 <span class="selection-divider"></span>
                 <button class="tooltip component-settings-action" id="component-settings-button" type="button" data-command="component-settings" aria-label="编辑组件设置" data-tooltip="编辑组件设置"><svg class="icon"><use href="#i-sliders"></use></svg></button>
-                <button class="selection-grip tooltip" type="button" aria-label="拖动元素" data-tooltip="拖动元素"><svg class="icon"><use href="#i-grip"></use></svg></button>
+                <button class="selection-grip tooltip" type="button" aria-label="自由移动组件" data-tooltip="自由拖动组件"><svg class="icon"><use href="#i-grip"></use></svg></button>
+                <button class="tooltip" type="button" data-command="reset-position" aria-label="位置归零" data-tooltip="位置归零"><svg class="icon"><use href="#i-refresh"></use></svg></button>
                 <button class="tooltip" id="selection-text-action" type="button" data-command="edit" aria-label="编辑文字" data-tooltip="编辑文字"><svg class="icon"><use href="#i-edit"></use></svg></button>
                 <button class="tooltip" type="button" data-command="insert" aria-label="在此插入" data-tooltip="在此插入"><svg class="icon"><use href="#i-boxes"></use></svg></button>
                 <button class="tooltip" type="button" data-command="before" aria-label="上移" data-tooltip="上移"><svg class="icon"><use href="#i-up"></use></svg></button>
@@ -357,7 +360,7 @@
       <label>Endpoint<input id="ai-endpoint" type="text" value="/api/ai-design"></label>
       <label>CLI<select id="ai-cli"><option value="codex">Codex CLI</option><option value="claude">Claude Code CLI</option></select></label>
       <label class="ai-model-field"><span>模型</span><div class="ai-model-picker"><select id="ai-model" aria-label="模型"><option value="">使用 CLI 默认模型</option><option value="__custom__">手动输入模型 ID…</option></select><button type="button" id="ai-refresh-models" title="刷新当前 CLI 支持的模型">刷新</button></div><input id="ai-model-custom" type="text" placeholder="输入模型 ID" hidden><small id="ai-model-status" aria-live="polite">选择 CLI 后自动读取支持的模型</small></label>
-      <label class="ai-fallback"><input id="ai-fallback" type="checkbox" checked><span><strong>自动切换可用 CLI</strong><small>当前 CLI 失败时继续使用本机另一条链路</small></span></label>
+      <label class="ai-fallback"><input id="ai-fallback" type="checkbox"><span><strong>允许切换备用 CLI</strong><small>开启后，当前 CLI 失败时会改用另一条本机链路</small></span></label>
       <div><button type="button" id="ai-save-settings">保存设置</button><button type="button" id="ai-test">测试连接</button></div>
     </details>
   </aside>
@@ -366,6 +369,6 @@
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
   <div class="modal-root" id="modal-root"></div>
 
-  <script type="module" src="js/studio-app.js?v=20260717g"></script>
+  <script type="module" src="js/studio-app.js?v=20260725a"></script>
 </body>
 </html>
