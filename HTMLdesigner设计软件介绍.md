@@ -37,37 +37,6 @@ macOS 和 Windows 也可以分别双击：
 
 一键启动脚本默认使用 `http://localhost:4175/`。
 
-## macOS 应用
-
-项目内置 Electron 桌面壳层，保留本机 AI CLI、文件打开、保存、重新读取和磁盘差异比较能力，并提供 macOS 原生菜单与 `.html/.htm` 文件关联。
-
-首次安装依赖：
-
-```bash
-npm install
-```
-
-开发运行：
-
-```bash
-npm run desktop
-```
-
-构建当前 Mac 架构的应用包和 DMG：
-
-```bash
-npm run desktop:dir
-npm run desktop:build
-```
-
-构建同时支持 Apple Silicon 与 Intel 的通用 DMG：
-
-```bash
-npm run desktop:build:universal
-```
-
-产物位于 `dist-macos/`。本地构建默认可用于开发与内部测试；公开分发前应配置 Apple Developer ID 签名与公证。
-
 ## AI Design
 
 AI Design 通过 `server.js` 调用本机 CLI，不在浏览器内保存 API Key。使用前需要安装并登录以下任意一种工具：

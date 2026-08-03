@@ -85,6 +85,31 @@ test('keeps a fixed device viewport and fits it without changing HTML layout wid
   assert.doesNotMatch(polish, /calc\(100% \/ var\(--canvas-scale\)\)/);
 });
 
+test('keeps the complete page visible beside AI Design and across edit and browse modes', () => {
+  assert.match(polish, /--ai-drawer-width: clamp\(/);
+  assert.match(polish, /\.studio\.ai-open \.studio-grid \{[^}]*margin-left: var\(--ai-drawer-width\)/);
+  assert.match(polish, /\.studio\.ai-open\.browse-mode \.studio-grid,/);
+  assert.match(app, /let canvasPageMode = true/);
+  assert.match(app, /setCanvasPageMode\(true, \{ announce: false \}\)/);
+  assert.match(app, /if \(canvasPageMode && canvasPageHeight > viewport\.height\)/);
+  assert.match(app, /message\.type === 'html-designer-preview-size'/);
+  assert.match(app, /scheduleFullPageMeasurement\(state\)/);
+  assert.match(app, /model\.mode === 'browse'\) canvas\.measureBrowsePage\(\)/);
+  assert.match(previewHost, /html-designer-measure-preview-size/);
+  assert.match(previewHost, /html-designer-preview-size/);
+  assert.match(previewHost, /documentHeight: documentHeight\(\)/);
+});
+
+test('keeps canvas zoom controls available while browsing', () => {
+  assert.match(index, /id="zoom-out-button"[^>]*aria-label="缩小画布"/);
+  assert.match(index, /id="zoom-in-button"[^>]*aria-label="放大画布"/);
+  assert.doesNotMatch(polish, /\.studio\.browse-mode \.canvas-hud\s*(?:,|\{)[^}]*display: none/);
+  assert.match(polish, /\.studio\.browse-mode #hud-insert-button,/);
+  assert.match(polish, /\.studio\.preview-mode #hud-insert-button,/);
+  assert.match(app, /zoom-out-button'\)\.onclick = \(\) => setCanvasZoom\(canvasZoom - \.1\)/);
+  assert.match(app, /zoom-in-button'\)\.onclick = \(\) => setCanvasZoom\(canvasZoom \+ \.1\)/);
+});
+
 test('tracks saved content independently from undo position and bounds every history source', () => {
   assert.match(app, /this\.savedHtml =/);
   assert.match(app, /updateDirty\(html = this\.currentText\(\)\)/);
@@ -116,16 +141,83 @@ test('preserves nested component markup and duplicate identity relationships', (
 
 test('moves selected components freely without limiting them to DOM drop targets', () => {
   assert.match(index, /id="selection-frame"[^>]*tabindex="-1"/);
-  assert.match(index, /data-command="reset-position"/);
+  assert.match(index, /id="selection-reset-position"[^>]*data-command="reset-position"/);
   assert.match(index, /aria-label="自由移动组件"/);
   assert.match(app, /freeTranslateOffset\(element/);
   assert.match(app, /setFreePosition\(element, x, y/);
+  assert.match(app, /this\.freePositionOrigins = new WeakMap\(\)/);
+  assert.match(app, /hasFreePositionChange\(element/);
+  assert.match(app, /restoreInlineProperty\(element, 'translate', origin\.value, origin\.priority\)/);
+  assert.doesNotMatch(app, /element\.style\.setProperty\('translate', 'none'\)/);
   assert.match(app, /style\.setProperty\('translate'/);
   assert.match(app, /自由移动组件 · 按住 Shift/);
   assert.match(app, /nudgeSelected\(dx, dy\)/);
   assert.match(app, /group\('自由位置'/);
+  assert.match(app, /element === model\.doc\?\.body \? null : group\('自由位置'/);
   const freeMove = app.match(/beginMove\(event,[\s\S]*?\n  updateResize\(event\)/)?.[0] || '';
   assert.doesNotMatch(freeMove, /target\.before|target\.after|target\.append/);
+});
+
+test('keeps double-click text editing available after an element is selected', () => {
+  assert.match(index, /aria-label="拖动选中组件，双击编辑文字"/);
+  assert.match(app, /doc\.addEventListener\('dblclick'/);
+  assert.match(app, /this\.editText\(resolveComponentTarget\(event\.target\)\)/);
+  assert.match(app, /this\.frame\.dataset\.movable = String\(canMove\)/);
+  assert.match(polish, /\.selection-frame \{[^}]*pointer-events: none/);
+});
+
+test('uses atomic controls and turns multiple selections into reusable custom composites', () => {
+  assert.match(index, /data-panel="library"[\s\S]*?<span>基础<\/span>/);
+  assert.match(index, /data-panel="snippets"[\s\S]*?<span>自定义<\/span>/);
+  assert.match(index, /id="multi-selection-layer"/);
+  assert.match(index, /id="multi-selection-count"/);
+  assert.match(index, /id="create-composite-button"/);
+  assert.match(index, /Shift、Ctrl 或 ⌘ 点击画布控件进行多选/);
+  assert.match(app, /this\.selection = \[\]/);
+  assert.match(app, /selectedElements\(\)/);
+  assert.match(app, /model\.select\(target, \{ toggle: true \}\)/);
+  assert.match(app, /if \(model\.selectedElements\(\)\.length !== 1\) return/);
+  assert.match(app, /function compositeSelectionElements\(\)/);
+  assert.match(app, /async function createCompositeControl\(\)/);
+  assert.match(app, /wrapper\.setAttribute\('data-hd-composite', 'true'\)/);
+  assert.match(app, /elements\.forEach\(element => wrapper\.append\(element\.cloneNode\(true\)\)\)/);
+  assert.match(app, /kind: 'composite'/);
+  assert.match(app, /this\.prepareDuplicate\(this\.createNode\(snippetHtml\)\)/);
+  assert.match(app, /canvas\.prepareDuplicate\(canvas\.createNode\(snippet\.html\)\)/);
+  assert.match(app, /if \(selection\.length > 1\) \{[\s\S]*?多选用于创建组合控件/);
+  assert.doesNotMatch(app, /\['组件', '卡片'/);
+  assert.doesNotMatch(app, /\['布局', '双栏'/);
+  assert.doesNotMatch(app, /\['导航', '导航栏'/);
+  assert.match(polish, /\.multi-selection-frame/);
+  assert.match(polish, /\.multi-selection-bar/);
+  assert.match(polish, /\.tree-row\.multi-selected/);
+});
+
+test('hands the current browse route, view state, and open overlays back to editing', () => {
+  assert.match(app, /captureBrowseState\(\)/);
+  assert.match(app, /applyBrowseStateToEditor\(state\)/);
+  assert.match(app, /BROWSE_PRESENTATION_MARKER/);
+  assert.match(app, /collectBrowsePresentationChanges/);
+  assert.match(app, /dialog\.showModal\(\)/);
+  assert.match(app, /当前视图：\$\{pageLabel\}/);
+  assert.match(previewHost, /html-designer-capture-preview-state/);
+  assert.match(previewHost, /html-designer-preview-state/);
+  assert.match(previewHost, /html-designer-restore-preview-state/);
+  assert.match(previewHost, /presentationChanges\(\)/);
+  assert.match(previewHost, /dialog:modal/);
+  assert.match(previewHost, /window\.addEventListener\('message', handleMessage\)/);
+});
+
+test('protects the document body from invalid component operations', () => {
+  assert.match(app, /const isRoot = element === model\.doc\?\.body/);
+  assert.match(app, /duplicate: !isRoot/);
+  assert.match(app, /remove: !isRoot/);
+  assert.match(app, /页面主体不能执行此操作/);
+  assert.match(app, /'duplicate-button': Boolean\(selected\) && !isRoot/);
+  assert.match(app, /model\.selected === model\.doc\?\.body/);
+  assert.match(app, /handle\.disabled = isRoot/);
+  assert.match(app, /element === model\.doc\?\.body\) return/);
+  assert.match(app, /summary-edit-button'\)\.disabled = !componentInfo\(element\)\.canEditText/);
 });
 
 test('warns when a single-file import depends on unresolved project paths', () => {

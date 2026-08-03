@@ -29,6 +29,7 @@ process.once('exit', () => {
 const publicFiles = new Set([
   'index.html',
   'guide.html',
+  'tutorial.html',
   'preview-host.html',
   'external-preview.html',
   'HTML_DESIGNER_USER_GUIDE.md',
@@ -75,9 +76,32 @@ const server = http.createServer(async (req, res) => {
 });
 
 if (require.main === module) {
-  server.listen(port, host, () => {
-    console.log(`HTML Designer running at http://${host === '127.0.0.1' ? 'localhost' : host}:${port}`);
-    console.log(`AI Design local CLI bridge: /api/ai-design -> ${defaultCli}`);
+  listenLocalServer().catch((error) => {
+    console.error('[HTML Designer] Failed to start local server:', error);
+    process.exitCode = 1;
+  });
+}
+
+function listenLocalServer(options = {}) {
+  const listenPort = Number(options.port ?? port);
+  const listenHost = options.host || host;
+  return new Promise((resolve, reject) => {
+    const onError = (error) => {
+      server.off('listening', onListening);
+      reject(error);
+    };
+    const onListening = () => {
+      server.off('error', onError);
+      const address = server.address();
+      const activeHost = typeof address === 'object' && address ? address.address : listenHost;
+      const activePort = typeof address === 'object' && address ? address.port : listenPort;
+      console.log(`HTML Designer running at http://${activeHost === '127.0.0.1' ? 'localhost' : activeHost}:${activePort}`);
+      console.log(`AI Design local CLI bridge: /api/ai-design -> ${defaultCli}`);
+      resolve({ host: activeHost, port: activePort, server });
+    };
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(listenPort, listenHost);
   });
 }
 
@@ -865,9 +889,11 @@ function isLoopbackHost(value) {
 function isAllowedOrigin(value) {
   try {
     const url = new URL(value);
+    const address = server.address();
+    const activePort = typeof address === 'object' && address ? Number(address.port) : port;
     return (url.protocol === 'http:' || url.protocol === 'https:')
       && (url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]')
-      && Number(url.port || (url.protocol === 'https:' ? 443 : 80)) === port;
+      && Number(url.port || (url.protocol === 'https:' ? 443 : 80)) === activePort;
   } catch (_) {
     return false;
   }
@@ -875,7 +901,10 @@ function isAllowedOrigin(value) {
 
 function isPublicPath(relative) {
   if (!relative || relative.split('/').some(part => !part || part.startsWith('.'))) return false;
-  return publicFiles.has(relative) || relative.startsWith('css/') || relative.startsWith('js/');
+  return publicFiles.has(relative)
+    || relative.startsWith('css/')
+    || relative.startsWith('js/')
+    || relative.startsWith('assets/tutorial/');
 }
 
 function serveStatic(pathname, req, res) {
@@ -994,6 +1023,7 @@ module.exports = {
   runLocalCliWithFallback,
   serializeCliError,
   server,
+  listenLocalServer,
   stripAnsi,
   testCliConnection,
 };

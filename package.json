@@ -3,11 +3,77 @@
   "version": "1.0.0",
   "private": true,
   "description": "HTML Designer with a visual editor and AI Design-assisted local CLI workflow.",
+  "main": "electron/main.js",
+  "author": "lamp-cat",
+  "license": "MIT",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "desktop": "electron .",
+    "desktop:dir": "electron-builder --mac dir",
+    "desktop:build": "electron-builder --mac dmg",
+    "desktop:build:universal": "electron-builder --mac dmg --universal"
   },
   "engines": {
     "node": ">=18"
+  },
+  "devDependencies": {
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3"
+  },
+  "build": {
+    "appId": "io.github.lamp-cat.html-designer",
+    "productName": "HTML Designer",
+    "asar": true,
+    "compression": "normal",
+    "artifactName": "HTML-Designer-${version}-${arch}.${ext}",
+    "directories": {
+      "output": "dist-macos"
+    },
+    "files": [
+      "electron/**/*",
+      "server.js",
+      "index.html",
+      "guide.html",
+      "tutorial.html",
+      "preview-host.html",
+      "external-preview.html",
+      "HTML_DESIGNER_USER_GUIDE.md",
+      "css/**/*",
+      "js/**/*",
+      "assets/**/*",
+      "logo-mark.svg",
+      "logo.png",
+      "logo-inverted.png",
+      "og-image.png",
+      "og-image.svg",
+      "LICENSE",
+      "package.json"
+    ],
+    "fileAssociations": [
+      {
+        "ext": ["html", "htm"],
+        "name": "HTML Document",
+        "description": "HTML document editable with HTML Designer",
+        "role": "Editor",
+        "mimeType": "text/html"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "logo.png",
+      "target": ["dmg"],
+      "hardenedRuntime": true,
+      "extendInfo": {
+        "NSHumanReadableCopyright": "Copyright © 2026 lamp-cat"
+      }
+    },
+    "dmg": {
+      "title": "HTML Designer ${version}",
+      "contents": [
+        { "x": 150, "y": 180, "type": "file" },
+        { "x": 430, "y": 180, "type": "link", "path": "/Applications" }
+      ]
+    }
   }
 }

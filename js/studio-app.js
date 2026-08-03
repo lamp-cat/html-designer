@@ -1,6 +1,7 @@
 const byId = (id) => document.getElementById(id);
 const pick = (selector, root = document) => root.querySelector(selector);
 const pickAll = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+const desktopBridge = window.htmlDesignerDesktop?.isDesktop ? window.htmlDesignerDesktop : null;
 
 const STORAGE = Object.freeze({
   draft: 'html-designer.v1.draft',
@@ -103,29 +104,26 @@ const EMPTY_DOCUMENT = `<!doctype html>
 
 const BLOCKS = [
   ['文字', '标题', 'H', '<h2 style="margin:0 0 12px;font-size:40px;line-height:1.05;">新的标题</h2>'],
-  ['文字', '正文', '¶', '<p style="max-width:680px;margin:0 0 16px;line-height:1.7;">在这里输入正文内容。</p>'],
-  ['文字', '引言', '“', '<blockquote style="margin:24px 0;padding:18px 22px;border-left:4px solid #5f7cff;background:#f4f6ff;font-size:20px;">值得强调的一段话。</blockquote>'],
-  ['文字', '代码块', '</>', '<pre style="overflow:auto;padding:18px;border-radius:12px;background:#111827;color:#e5e7eb;"><code>const hello = "world";</code></pre>'],
-  ['布局', '内容区块', '□', '<section style="padding:64px 24px;"><div style="width:min(1080px,100%);margin:0 auto;"><h2>Section title</h2><p>Section content</p></div></section>'],
-  ['布局', '双栏', '▥', '<section style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;"><div style="padding:24px;background:#f5f5f5;">左侧</div><div style="padding:24px;background:#eeeeee;">右侧</div></section>'],
-  ['布局', '三栏', '▦', '<section style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;"><div style="padding:20px;background:#f5f5f5;">一</div><div style="padding:20px;background:#eeeeee;">二</div><div style="padding:20px;background:#e7e7e7;">三</div></section>'],
-  ['布局', '分隔线', '—', '<hr style="margin:32px 0;border:0;border-top:1px solid #d9dce2;">'],
-  ['组件', '卡片', '▣', '<article style="padding:24px;border:1px solid #dfe3e9;border-radius:16px;background:white;box-shadow:0 18px 50px rgba(20,30,50,.08);"><h3 style="margin-top:0;">Card title</h3><p style="margin-bottom:0;color:#667085;">Card description</p></article>'],
-  ['组件', '主按钮', '→', '<a href="#" style="display:inline-flex;min-height:44px;padding:0 20px;align-items:center;justify-content:center;border-radius:999px;background:#111827;color:white;font-weight:700;text-decoration:none;">Primary action</a>'],
-  ['组件', '徽标', '●', '<span style="display:inline-flex;padding:6px 10px;border-radius:999px;background:#e7f8eb;color:#26723b;font-size:12px;font-weight:800;">NEW</span>'],
-  ['组件', '提示框', '!', '<aside role="note" style="padding:16px 18px;border:1px solid #bcd4ff;border-radius:12px;background:#eef5ff;color:#244778;"><strong>提示</strong><p style="margin:6px 0 0;">这里是一条重要说明。</p></aside>'],
-  ['组件', '详情折叠', '⌄', '<details style="padding:16px;border:1px solid #dfe3e9;border-radius:12px;"><summary style="cursor:pointer;font-weight:700;">展开查看详情</summary><p>隐藏的详细内容。</p></details>'],
-  ['媒体', '图片', '◫', '<img src="https://picsum.photos/1000/620" alt="示例图片" style="display:block;width:100%;height:auto;border-radius:16px;">'],
-  ['媒体', '视频', '▶', '<video controls style="display:block;width:100%;border-radius:16px;"><source src="" type="video/mp4">浏览器不支持视频。</video>'],
-  ['列表', '无序列表', '•', '<ul style="padding-left:22px;line-height:1.8;"><li>第一项</li><li>第二项</li><li>第三项</li></ul>'],
-  ['列表', '步骤列表', '1', '<ol style="padding-left:22px;line-height:1.8;"><li>第一步</li><li>第二步</li><li>第三步</li></ol>'],
-  ['表单', '输入框', '⌨', '<label style="display:grid;gap:7px;max-width:420px;"><span style="font-weight:700;">字段名称</span><input name="field" placeholder="请输入" style="height:44px;padding:0 12px;border:1px solid #cfd4dc;border-radius:10px;"></label>'],
-  ['表单', '文本域', '≡', '<label style="display:grid;gap:7px;max-width:520px;"><span style="font-weight:700;">详细内容</span><textarea rows="5" style="padding:12px;border:1px solid #cfd4dc;border-radius:10px;"></textarea></label>'],
-  ['表单', '选择器', '⌄', '<select style="height:44px;padding:0 12px;border:1px solid #cfd4dc;border-radius:10px;background:white;"><option>选项一</option><option>选项二</option></select>'],
-  ['导航', '导航栏', '☰', '<nav aria-label="主导航" style="display:flex;padding:18px 24px;align-items:center;justify-content:space-between;border-bottom:1px solid #e5e7eb;"><a href="#" style="color:inherit;font-weight:800;text-decoration:none;">Brand</a><div style="display:flex;gap:20px;"><a href="#">首页</a><a href="#">功能</a><a href="#">联系</a></div></nav>'],
-  ['导航', '页脚', '▁', '<footer style="padding:40px 24px;background:#111827;color:#c7ceda;text-align:center;">© 2026 Your product</footer>'],
-  ['数据', '数据表格', '▦', '<table style="width:100%;border-collapse:collapse;"><caption style="padding:0 0 12px;text-align:left;font-weight:800;">数据概览</caption><thead><tr><th style="padding:12px;text-align:left;border-bottom:2px solid #111827;">项目</th><th style="padding:12px;text-align:left;border-bottom:2px solid #111827;">状态</th></tr></thead><tbody><tr><td style="padding:12px;border-bottom:1px solid #e5e7eb;">Alpha</td><td style="padding:12px;border-bottom:1px solid #e5e7eb;">完成</td></tr><tr><td style="padding:12px;">Beta</td><td style="padding:12px;">进行中</td></tr></tbody></table>'],
-  ['数据', '价格表', '$', '<table style="width:100%;border-collapse:separate;border-spacing:0;border:1px solid #dfe3e9;border-radius:14px;overflow:hidden;"><thead><tr style="background:#f6f7f9;"><th style="padding:16px;text-align:left;">方案</th><th style="padding:16px;text-align:left;">价格</th><th style="padding:16px;text-align:left;">项目数</th></tr></thead><tbody><tr><td style="padding:16px;border-top:1px solid #dfe3e9;">Starter</td><td style="padding:16px;border-top:1px solid #dfe3e9;">¥0</td><td style="padding:16px;border-top:1px solid #dfe3e9;">3</td></tr><tr><td style="padding:16px;border-top:1px solid #dfe3e9;">Pro</td><td style="padding:16px;border-top:1px solid #dfe3e9;">¥99</td><td style="padding:16px;border-top:1px solid #dfe3e9;">不限</td></tr></tbody></table>'],
+  ['文字', '段落', '¶', '<p style="max-width:680px;margin:0 0 16px;line-height:1.7;">在这里输入正文内容。</p>'],
+  ['文字', '行内文字', 'T', '<span>行内文字</span>'],
+  ['文字', '链接', '↗', '<a href="#" style="color:inherit;text-underline-offset:3px;">文字链接</a>'],
+  ['文字', '引用', '“', '<blockquote style="margin:20px 0;padding-left:18px;border-left:3px solid currentColor;">引用内容</blockquote>'],
+  ['文字', '代码', '</>', '<pre style="overflow:auto;padding:14px;border-radius:8px;background:#111827;color:#e5e7eb;"><code>const value = true;</code></pre>'],
+  ['容器', '普通容器', '□', '<div style="min-height:80px;padding:16px;border:1px dashed #cfd4dc;">容器内容</div>'],
+  ['容器', '内容区域', '§', '<section style="min-height:120px;padding:24px;">内容区域</section>'],
+  ['容器', '分隔线', '—', '<hr style="margin:24px 0;border:0;border-top:1px solid #d9dce2;">'],
+  ['表单', '按钮', '◉', '<button type="button" style="min-height:42px;padding:0 18px;border:1px solid #cfd4dc;border-radius:8px;background:white;color:#111827;">按钮</button>'],
+  ['表单', '输入框', '⌨', '<input name="field" placeholder="请输入" style="height:44px;padding:0 12px;border:1px solid #cfd4dc;border-radius:8px;">'],
+  ['表单', '文本域', '≡', '<textarea name="content" rows="4" placeholder="请输入详细内容" style="padding:12px;border:1px solid #cfd4dc;border-radius:8px;"></textarea>'],
+  ['表单', '选择器', '⌄', '<select name="choice" style="height:44px;padding:0 12px;border:1px solid #cfd4dc;border-radius:8px;background:white;"><option>选项一</option><option>选项二</option></select>'],
+  ['表单', '复选框', '✓', '<label style="display:inline-flex;align-items:center;gap:8px;"><input type="checkbox" name="checked">复选项</label>'],
+  ['表单', '单选框', '●', '<label style="display:inline-flex;align-items:center;gap:8px;"><input type="radio" name="choice">单选项</label>'],
+  ['媒体', '图片', '◫', '<img src="https://picsum.photos/1000/620" alt="示例图片" style="display:block;max-width:100%;height:auto;">'],
+  ['媒体', '视频', '▶', '<video controls style="display:block;max-width:100%;"><source src="" type="video/mp4">浏览器不支持视频。</video>'],
+  ['媒体', '音频', '♪', '<audio controls><source src="" type="audio/mpeg">浏览器不支持音频。</audio>'],
+  ['结构', '无序列表', '•', '<ul style="padding-left:22px;"><li>列表项</li></ul>'],
+  ['结构', '有序列表', '1', '<ol style="padding-left:22px;"><li>列表项</li></ol>'],
+  ['结构', '数据表格', '▦', '<table style="width:100%;border-collapse:collapse;"><tbody><tr><td style="padding:10px;border:1px solid #dfe3e9;">单元格</td><td style="padding:10px;border:1px solid #dfe3e9;">单元格</td></tr></tbody></table>'],
 ];
 
 const VOID_TAGS = new Set(['AREA', 'BASE', 'BR', 'COL', 'EMBED', 'HR', 'IMG', 'INPUT', 'LINK', 'META', 'PARAM', 'SOURCE', 'TRACK', 'WBR']);
@@ -135,6 +133,7 @@ const PHRASING_CONTAINERS = new Set(['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'A
 const PHRASING_CONTENT = new Set(['A', 'ABBR', 'B', 'BDI', 'BDO', 'BR', 'BUTTON', 'CITE', 'CODE', 'DATA', 'DEL', 'EM', 'I', 'IMG', 'INPUT', 'INS', 'KBD', 'LABEL', 'MARK', 'Q', 'S', 'SAMP', 'SMALL', 'SPAN', 'STRONG', 'SUB', 'SUP', 'TIME', 'U', 'VAR', 'WBR']);
 const DIRECT_COMPONENT_TAGS = new Set(['A', 'BUTTON', 'INPUT', 'TEXTAREA', 'SELECT', 'FORM', 'IMG', 'PICTURE', 'VIDEO', 'AUDIO', 'IFRAME', 'DETAILS', 'SUMMARY', 'DIALOG', 'NAV', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TH', 'TD', 'UL', 'OL', 'LI']);
 const INLINE_WRAPPER_TAGS = new Set(['SPAN', 'STRONG', 'EM', 'SMALL', 'MARK', 'B', 'I', 'U', 'S', 'ABBR', 'CODE', 'USE', 'PATH', 'G']);
+const BROWSE_PRESENTATION_MARKER = 'data-hd-browse-presentation';
 
 function elementFromNode(node) {
   if (!node) return null;
@@ -368,7 +367,130 @@ function setInertAttribute(element, marker, name, value) {
   }
 }
 
+function isBrowsePresentationAttribute(name) {
+  const normalized = String(name || '').toLowerCase();
+  return normalized === 'class'
+    || normalized === 'hidden'
+    || normalized === 'open'
+    || normalized === 'inert'
+    || normalized.startsWith('aria-')
+    || (normalized.startsWith('data-') && !normalized.startsWith('data-hd-'));
+}
+
+function browseElementLocator(element) {
+  if (!element?.ownerDocument?.documentElement) return null;
+  const path = [];
+  let node = element;
+  while (node && node !== element.ownerDocument.documentElement) {
+    const parent = node.parentElement;
+    if (!parent) return null;
+    path.unshift(Array.from(parent.children).indexOf(node));
+    node = parent;
+  }
+  return { id: element.id || '', path, tag: element.tagName };
+}
+
+function resolveBrowseLocator(documentValue, locator) {
+  if (!documentValue?.documentElement || !locator) return null;
+  if (locator.id) {
+    const identified = documentValue.getElementById(locator.id);
+    if (identified && (!locator.tag || identified.tagName === locator.tag)) return identified;
+  }
+  const resolved = resolvePathInDocument(documentValue, locator.path);
+  return resolved && (!locator.tag || resolved.tagName === locator.tag) ? resolved : null;
+}
+
+function browsePresentationPayload(element) {
+  const stored = element?.getAttribute?.(BROWSE_PRESENTATION_MARKER) || '';
+  if (!stored.startsWith('hd:')) return { attributes: [], original: stored || null };
+  const payload = safeJson(decodeStoredText(stored.slice(3)), {});
+  return {
+    attributes: Array.isArray(payload.attributes) ? payload.attributes : [],
+    original: payload.original ?? null,
+  };
+}
+
+function rememberTransientBrowseAttributes(element, names) {
+  if (!element || !Array.isArray(names) || !names.length) return;
+  const payload = browsePresentationPayload(element);
+  const remembered = new Set(payload.attributes.map(item => item?.name).filter(Boolean));
+  names.forEach((name) => {
+    if (!name || remembered.has(name)) return;
+    payload.attributes.push({
+      name,
+      present: element.hasAttribute(name),
+      value: element.getAttribute(name),
+    });
+    remembered.add(name);
+  });
+  element.setAttribute(BROWSE_PRESENTATION_MARKER, `hd:${encodeURIComponent(JSON.stringify(payload))}`);
+}
+
+function releaseTransientBrowseAttribute(element, name) {
+  if (!element?.hasAttribute?.(BROWSE_PRESENTATION_MARKER)) return;
+  const payload = browsePresentationPayload(element);
+  payload.attributes = payload.attributes.filter(item => item?.name !== name);
+  if (payload.attributes.length) {
+    element.setAttribute(BROWSE_PRESENTATION_MARKER, `hd:${encodeURIComponent(JSON.stringify(payload))}`);
+  } else if (payload.original != null) {
+    element.setAttribute(BROWSE_PRESENTATION_MARKER, payload.original);
+  } else {
+    element.removeAttribute(BROWSE_PRESENTATION_MARKER);
+  }
+}
+
+function restoreTransientBrowseArtifacts(root) {
+  const selector = `[${BROWSE_PRESENTATION_MARKER}]`;
+  const marked = [
+    ...(root.matches?.(selector) ? [root] : []),
+    ...pickAll(selector, root),
+  ];
+  marked.forEach((element) => {
+    const payload = browsePresentationPayload(element);
+    if (element.tagName === 'DIALOG' && element.matches?.(':modal')) {
+      try { element.close(); } catch (_) {}
+    }
+    payload.attributes.forEach(({ name, present, value }) => {
+      if (!name) return;
+      if (present) element.setAttribute(name, value ?? '');
+      else element.removeAttribute(name);
+    });
+    if (payload.original != null) element.setAttribute(BROWSE_PRESENTATION_MARKER, payload.original);
+    else element.removeAttribute(BROWSE_PRESENTATION_MARKER);
+  });
+  return root;
+}
+
+function collectBrowsePresentationChanges(documentValue, baselineDocument) {
+  if (!documentValue?.documentElement || !baselineDocument?.documentElement) return [];
+  const elements = Array.from(new Set([documentValue.documentElement, ...pickAll('*', documentValue)]));
+  return elements.flatMap((element) => {
+    if (element.hasAttribute(BROWSE_PRESENTATION_MARKER)) {
+      const payload = browsePresentationPayload(element);
+      const attributes = payload.attributes.map(({ name }) => [
+        name,
+        element.hasAttribute(name) ? element.getAttribute(name) : null,
+      ]);
+      return attributes.length ? [{ locator: browseElementLocator(element), attributes }] : [];
+    }
+    const locator = browseElementLocator(element);
+    const baseline = resolveBrowseLocator(baselineDocument, locator);
+    if (!baseline) return [];
+    const names = new Set([
+      ...pickAllAttributes(element).map(attribute => attribute.name),
+      ...pickAllAttributes(baseline).map(attribute => attribute.name),
+    ].filter(isBrowsePresentationAttribute));
+    const attributes = Array.from(names).flatMap((name) => {
+      const current = element.hasAttribute(name) ? element.getAttribute(name) : null;
+      const original = baseline.hasAttribute(name) ? baseline.getAttribute(name) : null;
+      return current === original ? [] : [[name, current]];
+    });
+    return attributes.length ? [{ locator, attributes }] : [];
+  });
+}
+
 function restoreEditableArtifacts(root) {
+  restoreTransientBrowseArtifacts(root);
   pickAll('meta[data-hd-editor-csp="hd"]', root).forEach((element) => element.remove());
   restoreInertAttributes(root, 'data-hd-inert-events');
   restoreInertAttributes(root, 'data-hd-inert-urls');
@@ -708,12 +830,14 @@ class StudioModel extends EventTarget {
     super();
     this.doc = null;
     this.selected = null;
+    this.selection = [];
     this.mode = 'visual';
     this.sourceText = '';
     this.sourceBaseline = '';
     this.savedHtml = '';
     this.documentId = '';
     this.fileHandle = null;
+    this.desktopFileToken = null;
     this.fileName = 'untitled.html';
     this.fileMtime = null;
     this.fileSignature = null;
@@ -733,11 +857,37 @@ class StudioModel extends EventTarget {
     this.signal('dirty', next);
   }
 
-  select(element) {
+  selectedElements() {
+    const connected = this.selection.filter((element, index, items) => (
+      element?.isConnected
+      && !FORBIDDEN_SELECT.has(element.tagName)
+      && items.indexOf(element) === index
+    ));
+    if (connected.length !== this.selection.length) this.selection = connected;
+    if (this.selected && !connected.includes(this.selected)) this.selected = connected.at(-1) || null;
+    return connected;
+  }
+
+  select(element, options = {}) {
     if (element && (FORBIDDEN_SELECT.has(element.tagName) || !element.isConnected)) element = null;
-    if (element === this.selected) return;
-    this.selected = element;
-    this.signal('selection', element);
+    const additive = Boolean(options.additive || options.toggle);
+    const current = this.selectedElements();
+    let next;
+    if (!element) next = [];
+    else if (additive && element !== this.doc?.body) {
+      const exists = current.includes(element);
+      next = options.toggle && exists
+        ? current.filter(item => item !== element)
+        : exists ? current : [...current, element];
+    } else next = [element];
+    const selected = next.includes(element) ? element : next.at(-1) || null;
+    const changed = selected !== this.selected
+      || next.length !== current.length
+      || next.some((item, index) => item !== current[index]);
+    if (!changed) return;
+    this.selection = next;
+    this.selected = selected;
+    this.signal('selection', { selected, elements: [...next] });
   }
 
   elementPath(element = this.selected) {
@@ -872,17 +1022,21 @@ class CanvasController {
   constructor() {
     this.iframe = byId('design-canvas');
     this.browseFrame = byId('browse-canvas');
+    this.workbench = byId('workbench');
     this.shell = byId('canvas-shell');
     this.layer = byId('selection-layer');
     this.frame = byId('selection-frame');
     this.label = byId('selection-label');
     this.size = byId('selection-size');
     this.actions = byId('selection-actions');
+    this.multiLayer = byId('multi-selection-layer');
+    this.multiBar = byId('multi-selection-bar');
     this.hover = byId('hover-frame');
     this.dropMarker = byId('drop-marker');
     this.preview = false;
     this.resizeSession = null;
     this.moveSession = null;
+    this.freePositionOrigins = new WeakMap();
     this.blockDragSession = null;
     this.dropTarget = null;
     this.loadSequence = 0;
@@ -890,6 +1044,11 @@ class CanvasController {
     this.browseSession = 0;
     this.activeBrowseSession = null;
     this.pendingBrowse = null;
+    this.browseRestoreState = null;
+    this.browseStateRequest = 0;
+    this.pendingBrowseState = null;
+    this.lastBrowseState = null;
+    this.browseMeasureView = null;
     this.browseReadyTimer = null;
     this.hoverFrameRequest = 0;
     this.hoverCandidate = null;
@@ -904,7 +1063,6 @@ class CanvasController {
     pickAll('[data-resize]', this.layer).forEach((handle) => {
       handle.addEventListener('pointerdown', (event) => this.beginResize(event, handle.dataset.resize));
     });
-    this.frame.addEventListener('pointerdown', (event) => this.beginMove(event));
     pick('.selection-grip', this.actions)?.addEventListener('pointerdown', (event) => this.beginMove(event));
     document.addEventListener('pointermove', (event) => { this.updateResize(event); this.updateMove(event); this.updateBlockDrag(event); });
     document.addEventListener('pointerup', (event) => { this.endResize(); this.endMove(); this.endBlockDrag(event); });
@@ -920,6 +1078,8 @@ class CanvasController {
 
   async load(html, options = {}) {
     const source = String(html || '').trim() || EMPTY_DOCUMENT;
+    this.lastBrowseState = null;
+    this.browseRestoreState = null;
     const sequence = ++this.loadSequence;
     this.pendingLoad?.cancel();
     return new Promise((resolve, reject) => {
@@ -940,6 +1100,7 @@ class CanvasController {
           model.doc = this.iframe.contentDocument;
           if (!model.doc?.documentElement) throw new Error('编辑画布没有返回可编辑文档');
           model.selected = null;
+          model.selection = [];
           if (previousSelection) model.signal('selection', null);
           this.wireDocument(model.doc);
           this.updateOverlay();
@@ -960,9 +1121,46 @@ class CanvasController {
   handleBrowseReady(event) {
     const message = event.data;
     if (event.source !== this.browseFrame.contentWindow || !message) return;
+    if (message.type === 'html-designer-preview-state' && message.session === this.activeBrowseSession) {
+      const pendingState = this.pendingBrowseState;
+      if (!pendingState || message.requestId !== pendingState.requestId) return;
+      window.clearTimeout(pendingState.timer);
+      this.pendingBrowseState = null;
+      this.lastBrowseState = message.state
+        ? { ...message.state, ...pendingState.workspace }
+        : this.lastBrowseState;
+      pendingState.resolve(this.lastBrowseState);
+      return;
+    }
+    if (message.type === 'html-designer-preview-size' && message.session === this.activeBrowseSession) {
+      if (canvasPageMode) {
+        applyCanvasHeight(message.documentHeight);
+        fitCanvas(false);
+        this.restoreWorkspaceView(this.browseMeasureView || this.lastBrowseState);
+      }
+      this.browseMeasureView = null;
+      updateCanvasInfo();
+      return;
+    }
     if (message.type === 'html-designer-preview-rendered' && message.session === this.activeBrowseSession) {
       window.clearTimeout(this.browseReadyTimer);
       this.browseFrame.dataset.previewState = 'ready';
+      if (canvasPageMode) applyCanvasHeight(message.documentHeight);
+      else applyCanvasHeight(currentBaseViewport().height);
+      fitCanvas(false);
+      if (this.browseRestoreState) {
+        this.browseFrame.contentWindow.postMessage({
+          type: 'html-designer-restore-preview-state',
+          session: this.activeBrowseSession,
+          state: this.browseRestoreState,
+        }, '*');
+      }
+      this.restoreWorkspaceView(this.browseRestoreState);
+      if (canvasPageMode) {
+        window.setTimeout(() => {
+          if (message.session === this.activeBrowseSession) this.measureBrowsePage(this.browseRestoreState);
+        }, 80);
+      }
       if (model.mode === 'browse') setStatus('浏览模式 · 页面已载入，链接、表单和脚本交互已启用');
       return;
     }
@@ -972,9 +1170,133 @@ class CanvasController {
     this.pendingBrowse = null;
   }
 
-  enterBrowse(html = model.serializeDocument()) {
+  captureVisualState(html = model.serializeDocument()) {
+    if (!model.doc?.documentElement) return this.lastBrowseState;
+    const baseline = new DOMParser().parseFromString(String(html || ''), 'text/html');
+    let modalElements = [];
+    let popoverElements = [];
+    try {
+      modalElements = pickAll('dialog:modal', model.doc);
+      popoverElements = pickAll(':popover-open', model.doc);
+    } catch (_) {}
+    const target = model.selected?.isConnected
+      ? model.selected
+      : modalElements.at(-1) || null;
+    const view = model.doc.defaultView;
+    return {
+      route: this.lastBrowseState?.route || '',
+      hash: this.lastBrowseState?.hash || '',
+      scrollX: Math.round(view?.scrollX || 0),
+      scrollY: Math.round(view?.scrollY || 0),
+      target: browseElementLocator(target),
+      presentation: collectBrowsePresentationChanges(model.doc, baseline),
+      modals: modalElements.map(browseElementLocator).filter(Boolean),
+      popovers: popoverElements.map(browseElementLocator).filter(Boolean),
+      pageLabel: this.lastBrowseState?.pageLabel || (target ? componentInfo(target).name : model.doc.title || '当前页面'),
+      ...this.workspaceViewState(),
+    };
+  }
+
+  captureBrowseState() {
+    const workspace = this.workspaceViewState();
+    if (!this.activeBrowseSession || this.browseFrame.dataset.previewState !== 'ready') {
+      return Promise.resolve(this.lastBrowseState ? { ...this.lastBrowseState, ...workspace } : null);
+    }
+    this.pendingBrowseState?.resolve(this.lastBrowseState);
+    if (this.pendingBrowseState) window.clearTimeout(this.pendingBrowseState.timer);
+    const requestId = String(++this.browseStateRequest);
+    return new Promise((resolve) => {
+      const timer = window.setTimeout(() => {
+        if (this.pendingBrowseState?.requestId === requestId) this.pendingBrowseState = null;
+        resolve(this.lastBrowseState ? { ...this.lastBrowseState, ...workspace } : null);
+      }, 900);
+      this.pendingBrowseState = { requestId, resolve, timer, workspace };
+      this.browseFrame.contentWindow.postMessage({
+        type: 'html-designer-capture-preview-state',
+        session: this.activeBrowseSession,
+        requestId,
+      }, '*');
+    });
+  }
+
+  workspaceViewState() {
+    return {
+      workspaceScrollX: Math.round(this.workbench?.scrollLeft || 0),
+      workspaceScrollY: Math.round(this.workbench?.scrollTop || 0),
+    };
+  }
+
+  restoreWorkspaceView(state) {
+    if (!this.workbench || !state) return;
+    const left = Number(state.workspaceScrollX) || 0;
+    const top = Number(state.workspaceScrollY) || 0;
+    window.requestAnimationFrame(() => this.workbench.scrollTo({ left, top, behavior: 'instant' }));
+  }
+
+  measureBrowsePage(state = this.workspaceViewState()) {
+    if (!this.activeBrowseSession || this.browseFrame.dataset.previewState !== 'ready') return;
+    this.browseMeasureView = state;
+    applyCanvasHeight(currentBaseViewport().height);
+    window.requestAnimationFrame(() => {
+      this.browseFrame.contentWindow.postMessage({
+        type: 'html-designer-measure-preview-size',
+        session: this.activeBrowseSession,
+      }, '*');
+    });
+  }
+
+  async applyBrowseStateToEditor(state) {
+    if (!state || !model.doc?.documentElement) return '';
+    restoreTransientBrowseArtifacts(model.doc);
+    try {
+      pickAll(':popover-open', model.doc).forEach((element) => element.hidePopover?.());
+    } catch (_) {}
+    (Array.isArray(state.presentation) ? state.presentation : []).forEach((change) => {
+      const element = resolveBrowseLocator(model.doc, change.locator);
+      const attributes = (Array.isArray(change.attributes) ? change.attributes : [])
+        .filter(([name]) => isBrowsePresentationAttribute(name));
+      if (!element || !attributes.length) return;
+      rememberTransientBrowseAttributes(element, attributes.map(([name]) => name));
+      attributes.forEach(([name, value]) => {
+        if (value == null) element.removeAttribute(name);
+        else element.setAttribute(name, value);
+      });
+    });
+    (Array.isArray(state.modals) ? state.modals : []).forEach((locator) => {
+      const dialog = resolveBrowseLocator(model.doc, locator);
+      if (dialog?.tagName !== 'DIALOG') return;
+      try {
+        if (dialog.open) dialog.close();
+        dialog.showModal();
+      } catch (_) {
+        dialog.setAttribute('open', '');
+      }
+    });
+    (Array.isArray(state.popovers) ? state.popovers : []).forEach((locator) => {
+      const popover = resolveBrowseLocator(model.doc, locator);
+      try { popover?.showPopover?.(); } catch (_) {}
+    });
+    const target = resolveBrowseLocator(model.doc, state.target)
+      || (state.hash ? model.doc.getElementById(decodeURIComponent(String(state.hash).replace(/^#/, ''))) : null);
+    if (target) model.select(resolveComponentTarget(target));
+    await new Promise(resolve => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+    model.doc.defaultView.scrollTo({
+      left: Number(state.scrollX) || 0,
+      top: Number(state.scrollY) || 0,
+      behavior: 'instant',
+    });
+    if (canvasPageMode) scheduleFullPageMeasurement(state);
+    else this.restoreWorkspaceView(state);
+    this.lastBrowseState = state;
+    this.updateOverlay();
+    return state.pageLabel || (target ? componentInfo(target).name : '当前页面');
+  }
+
+  enterBrowse(html = model.serializeDocument(), restoreState = this.captureVisualState(html)) {
     this.preview = true;
     this.layer.hidden = true;
+    this.multiLayer.hidden = true;
+    this.multiBar.hidden = true;
     this.hover.hidden = true;
     this.dropMarker.hidden = true;
     this.shell.classList.add('browsing');
@@ -984,6 +1306,9 @@ class CanvasController {
     const session = String(++this.browseSession);
     this.activeBrowseSession = session;
     this.pendingBrowse = { session, html: String(html || EMPTY_DOCUMENT) };
+    this.browseRestoreState = restoreState || null;
+    this.browseMeasureView = null;
+    this.lastBrowseState = restoreState || this.lastBrowseState;
     this.browseFrame.dataset.previewState = 'loading';
     window.clearTimeout(this.browseReadyTimer);
     this.browseReadyTimer = window.setTimeout(() => {
@@ -998,8 +1323,15 @@ class CanvasController {
 
   exitBrowse() {
     window.clearTimeout(this.browseReadyTimer);
+    if (this.pendingBrowseState) {
+      window.clearTimeout(this.pendingBrowseState.timer);
+      this.pendingBrowseState.resolve(this.lastBrowseState);
+      this.pendingBrowseState = null;
+    }
     this.activeBrowseSession = null;
     this.pendingBrowse = null;
+    this.browseRestoreState = null;
+    this.browseMeasureView = null;
     this.browseFrame.dataset.previewState = 'idle';
     this.shell.classList.remove('browsing');
     this.browseFrame.hidden = true;
@@ -1037,7 +1369,7 @@ class CanvasController {
     doc.addEventListener('pointerdown', (event) => {
       if (event.button !== 0 || event.target.closest?.('[data-hd-editing="true"]')) return;
       const target = resolveComponentTarget(event.target);
-      if (!target || target !== model.selected) return;
+      if (!target || target !== model.selected || model.selectedElements().length !== 1) return;
       this.beginMove(this.parentPointerEvent(event), target, event.target);
     }, true);
     doc.addEventListener('pointermove', (event) => this.updateMove(this.parentPointerEvent(event)), true);
@@ -1054,6 +1386,11 @@ class CanvasController {
       event.preventDefault();
       event.stopPropagation();
       const target = resolveComponentTarget(event.target);
+      const additive = Boolean(event.shiftKey || event.ctrlKey || event.metaKey);
+      if (additive) {
+        model.select(target, { toggle: true });
+        return;
+      }
       if (target === model.selected) {
         this.showSelectionMenu();
         this.updateOverlay();
@@ -1161,7 +1498,7 @@ class CanvasController {
   }
 
   showHover(element) {
-    if (this.preview || !element || element === model.selected || FORBIDDEN_SELECT.has(element.tagName)) {
+    if (this.preview || !element || model.selectedElements().includes(element) || FORBIDDEN_SELECT.has(element.tagName)) {
       this.hover.hidden = true;
       return;
     }
@@ -1183,9 +1520,45 @@ class CanvasController {
     });
   }
 
+  updateMultiOverlay(elements = model.selectedElements()) {
+    const visible = model.mode === 'visual' && !this.preview && elements.length > 1;
+    this.multiLayer.hidden = !visible;
+    this.multiBar.hidden = !visible;
+    this.multiLayer.replaceChildren();
+    if (!visible) return;
+    let primaryRect = null;
+    elements.forEach((element, index) => {
+      const rect = element.getBoundingClientRect();
+      if (element === model.selected) primaryRect = rect;
+      const frame = document.createElement('div');
+      frame.className = `multi-selection-frame${element === model.selected ? ' primary' : ''}`;
+      Object.assign(frame.style, {
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+      });
+      const label = document.createElement('span');
+      label.textContent = String(index + 1);
+      frame.append(label);
+      this.multiLayer.append(frame);
+    });
+    if (primaryRect) {
+      const barHeight = 58;
+      const below = primaryRect.bottom + 12;
+      const top = below + barHeight <= this.iframe.clientHeight
+        ? below
+        : Math.max(12, primaryRect.top - barHeight - 12);
+      this.multiBar.style.top = `${top}px`;
+    }
+    byId('multi-selection-count').textContent = String(elements.length);
+  }
+
   updateOverlay() {
+    const elements = model.selectedElements();
+    this.updateMultiOverlay(elements);
     const element = model.selected;
-    if (!element?.isConnected || this.preview || model.mode !== 'visual') {
+    if (!element?.isConnected || elements.length !== 1 || this.preview || model.mode !== 'visual') {
       this.layer.hidden = true;
       return;
     }
@@ -1204,6 +1577,32 @@ class CanvasController {
     settingsButton.dataset.tooltip = `编辑${info.name}设置`;
     const textButton = byId('selection-text-action');
     textButton.hidden = !info.canEditText;
+    const canMove = element !== model.doc?.body;
+    const isRoot = element === model.doc?.body;
+    const hasParent = Boolean(element.parentElement && element.parentElement !== model.doc?.documentElement);
+    const moveGrip = byId('selection-move-grip');
+    const resetPosition = byId('selection-reset-position');
+    this.frame.dataset.movable = String(canMove);
+    this.frame.setAttribute('aria-label', [
+      canMove ? '拖动选中组件' : '选中页面主体',
+      info.canEditText ? '双击编辑文字' : '',
+    ].filter(Boolean).join('，'));
+    if (moveGrip) moveGrip.disabled = !canMove;
+    if (resetPosition) resetPosition.disabled = !canMove || !this.hasFreePositionChange(element);
+    pickAll('[data-resize]', this.layer).forEach((handle) => { handle.disabled = isRoot; });
+    const commandStates = {
+      before: !isRoot && Boolean(element.previousElementSibling),
+      after: !isRoot && Boolean(element.nextElementSibling),
+      parent: hasParent,
+      duplicate: !isRoot,
+      remove: !isRoot,
+    };
+    Object.entries(commandStates).forEach(([command, enabled]) => {
+      const button = pick(`[data-command="${command}"]`, this.actions);
+      if (button) button.disabled = !enabled;
+    });
+    const summaryDuplicate = byId('summary-duplicate-button');
+    if (summaryDuplicate) summaryDuplicate.disabled = isRoot;
     const uiScale = Math.max(.01, canvasZoom);
     Object.assign(this.label.style, { left: `${left}px`, top: `${Math.max(0, top - 20 / uiScale)}px` });
     const width = Math.round(rect.width);
@@ -1240,6 +1639,7 @@ class CanvasController {
   setAttribute(element, name, value) {
     const next = String(value ?? '').trim();
     const normalizedName = String(name || '').toLowerCase();
+    releaseTransientBrowseAttribute(element, normalizedName);
     if (normalizedName.startsWith('on')) {
       element.removeAttribute(name);
       setInertAttribute(element, 'data-hd-inert-events', name, next || null);
@@ -1359,7 +1759,10 @@ class CanvasController {
     const { fields, textTarget } = this.componentEditorFields(element, info);
     modal.component(info, this.describe(element), fields, (values) => {
       const before = model.serializeDocument();
-      const setBoolean = (name, enabled) => element.toggleAttribute(name, Boolean(enabled));
+      const setBoolean = (name, enabled) => {
+        releaseTransientBrowseAttribute(element, name);
+        element.toggleAttribute(name, Boolean(enabled));
+      };
       if ('text' in values && textTarget) textTarget.textContent = values.text;
       if ('richText' in values && textTarget) {
         textTarget.replaceChildren(...prepareEditableFragment(values.richText, textTarget.ownerDocument));
@@ -1438,7 +1841,7 @@ class CanvasController {
       } else if (['navigation', 'layout', 'dialog', 'role-choice', 'role-input'].includes(info.key)) {
         this.setAttribute(element, 'aria-label', values.ariaLabel);
         if ('open' in values) setBoolean('open', values.open);
-        if ('checked' in values) element.setAttribute('aria-checked', String(values.checked));
+        if ('checked' in values) this.setAttribute(element, 'aria-checked', String(values.checked));
       }
       this.setAttribute(element, 'id', values.id);
       this.setAttribute(element, 'class', values.className);
@@ -1486,8 +1889,14 @@ class CanvasController {
   runCommand(command) {
     if (command === 'insert') return openInsertPalette();
     if (command === 'deselect') return model.select(null);
+    if (model.selectedElements().length !== 1) return;
     const element = model.selected;
     if (!element) return;
+    const isRoot = element === model.doc?.body;
+    if (isRoot && ['duplicate', 'remove', 'before', 'after', 'parent'].includes(command)) {
+      toast('页面主体不能执行此操作', 'error');
+      return;
+    }
     if (command === 'reset-position') return this.resetFreePosition(element);
     if (command === 'component-settings') return this.openComponentEditor(element);
     if (command === 'edit') return this.editText(element);
@@ -1568,7 +1977,7 @@ class CanvasController {
 
   beginResize(event, axis) {
     const element = model.selected;
-    if (!element) return;
+    if (!element || element === model.doc?.body) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     const rect = element.getBoundingClientRect();
@@ -1623,6 +2032,12 @@ class CanvasController {
     const nextX = Math.round((Number(x) || 0) * 10) / 10;
     const nextY = Math.round((Number(y) || 0) * 10) / 10;
     if (Math.abs(current.x - nextX) < .05 && Math.abs(current.y - nextY) < .05) return false;
+    if (!this.freePositionOrigins.has(element)) {
+      this.freePositionOrigins.set(element, {
+        value: element.style.getPropertyValue('translate'),
+        priority: element.style.getPropertyPriority('translate'),
+      });
+    }
     const priority = options.priority ?? element.style.getPropertyPriority('translate');
     element.style.setProperty('translate', `${nextX}px ${nextY}px`, priority);
     if (options.checkpoint !== false) model.checkpoint(options.label || '自由移动组件');
@@ -1631,17 +2046,30 @@ class CanvasController {
     return true;
   }
 
+  hasFreePositionChange(element = model.selected) {
+    if (!element?.isConnected || element === model.doc?.body) return false;
+    const origin = this.freePositionOrigins.get(element);
+    if (!origin) return false;
+    return element.style.getPropertyValue('translate') !== origin.value
+      || element.style.getPropertyPriority('translate') !== origin.priority;
+  }
+
   resetFreePosition(element = model.selected) {
-    if (!element?.isConnected || element === model.doc?.body) return;
+    if (!this.hasFreePositionChange(element)) return false;
     const before = model.serializeDocument();
-    element.style.setProperty('translate', 'none');
+    const origin = this.freePositionOrigins.get(element);
+    this.restoreInlineProperty(element, 'translate', origin.value, origin.priority);
+    this.freePositionOrigins.delete(element);
     if (model.serializeDocument() !== before) {
       model.checkpoint('组件位置归零');
       renderInspectors();
       this.updateOverlay();
       setStatus('组件已回到原始布局位置');
       toast('组件位置已归零', 'success');
+      return true;
     }
+    this.updateOverlay();
+    return false;
   }
 
   nudgeSelected(dx, dy) {
@@ -1659,7 +2087,7 @@ class CanvasController {
   }
 
   beginMove(event, element = model.selected, captureTarget = event.currentTarget) {
-    if (event.button !== 0 || !element || element === model.doc?.body || this.resizeSession || this.layer.classList.contains('editing')) return;
+    if (event.button !== 0 || !element || element === model.doc?.body || this.resizeSession || this.moveSession || this.layer.classList.contains('editing')) return;
     event.preventDefault();
     captureTarget?.setPointerCapture?.(event.pointerId);
     this.frame.focus({ preventScroll: true });
@@ -1874,7 +2302,7 @@ class CanvasController {
     const movePath = event.dataTransfer.getData('application/x-html-designer-path');
     let node = null;
     if (blockIndex !== '') node = this.createNode(BLOCKS[Number(blockIndex)]?.[3]);
-    else if (snippetHtml) node = this.createNode(snippetHtml);
+    else if (snippetHtml) node = this.prepareDuplicate(this.createNode(snippetHtml));
     else if (movePath) node = model.resolvePath(safeJson(movePath, null));
     if (node) this.insertNode(node, this.dropTarget.target, this.dropTarget.position);
     this.dropTarget = null;
@@ -1917,6 +2345,8 @@ class CanvasController {
     this.preview = Boolean(value);
     if (this.preview) {
       this.layer.hidden = true;
+      this.multiLayer.hidden = true;
+      this.multiBar.hidden = true;
       this.hover.hidden = true;
     } else this.updateOverlay();
   }
@@ -1947,8 +2377,9 @@ function insertBlock(index) {
   const block = BLOCKS[Number(index)];
   if (!block || !model.doc) return false;
   const node = canvas.createNode(block[3]);
-  const target = model.selected || model.doc.body;
-  const position = !model.selected || canvas.canContain(target, node) ? 'inside' : 'after';
+  const selection = model.selectedElements();
+  const target = selection.length === 1 ? model.selected : model.doc.body;
+  const position = selection.length !== 1 || canvas.canContain(target, node) ? 'inside' : 'after';
   const inserted = node && canvas.insertNode(node, target, position);
   if (inserted) {
     setStatus(`已插入${block[1]}`);
@@ -1993,7 +2424,7 @@ function renderBlocks(filter = '') {
     pick('.block-insert', item).addEventListener('click', (event) => { event.stopPropagation(); insertBlock(index); });
     root.append(item);
   });
-  if (!matches) root.innerHTML = emptyStateMarkup('search', '没有找到组件', '试试“卡片”“双栏”或“按钮”。');
+  if (!matches) root.innerHTML = emptyStateMarkup('search', '没有找到基础控件', '试试“标题”“容器”“按钮”或“输入框”。');
 }
 
 const collapsedElements = new WeakSet();
@@ -2013,7 +2444,8 @@ function renderTree() {
   const appendElement = (element, depth) => {
     const row = document.createElement('div');
     const collapsed = collapsedElements.has(element);
-    row.className = `tree-row${element === model.selected ? ' selected' : ''}${collapsed ? ' collapsed' : ''}`;
+    const selectedElements = model.selectedElements();
+    row.className = `tree-row${element === model.selected ? ' selected' : ''}${selectedElements.length > 1 && selectedElements.includes(element) ? ' multi-selected' : ''}${collapsed ? ' collapsed' : ''}`;
     row.style.paddingLeft = `${Math.min(14, depth) * 11}px`;
     row.draggable = element !== model.doc.body;
     const toggle = document.createElement(element.children.length ? 'button' : 'span');
@@ -2032,7 +2464,10 @@ function renderTree() {
         renderTree();
       });
     }
-    row.addEventListener('click', (event) => { if (!event.target.closest('.tree-toggle')) model.select(element); });
+    row.addEventListener('click', (event) => {
+      if (event.target.closest('.tree-toggle')) return;
+      model.select(element, { toggle: event.shiftKey || event.ctrlKey || event.metaKey });
+    });
     row.addEventListener('dragstart', (event) => {
       treeDragElement = element;
       event.dataTransfer.effectAllowed = 'move';
@@ -2078,6 +2513,14 @@ function renderTree() {
 function renderPath() {
   const root = byId('selection-path');
   root.replaceChildren();
+  const selection = model.selectedElements();
+  if (selection.length > 1) {
+    const summary = document.createElement('span');
+    summary.textContent = `${selection.length} 个控件已选择`;
+    root.append(summary);
+    byId('selection-utilities').hidden = true;
+    return;
+  }
   let node = model.selected;
   const chain = [];
   while (node && node !== model.doc?.documentElement) { chain.unshift(node); node = node.parentElement; }
@@ -2088,7 +2531,7 @@ function renderPath() {
     button.onclick = () => model.select(element);
     root.append(button);
   });
-  byId('selection-utilities').hidden = !model.selected;
+  byId('selection-utilities').hidden = selection.length !== 1;
 }
 
 function cssSelectorPath(element = model.selected) {
@@ -2133,7 +2576,7 @@ function renderSelectionSummary(element = model.selected) {
   byId('summary-name').textContent = canvas.describe(element);
   byId('summary-selector').textContent = cssSelectorPath(element) || element.tagName.toLowerCase();
   byId('summary-size').textContent = `${Math.round(rect.width)} × ${Math.round(rect.height)}`;
-  byId('summary-edit-button').disabled = VOID_TAGS.has(element.tagName);
+  byId('summary-edit-button').disabled = !componentInfo(element).canEditText;
   root.hidden = false;
 }
 
@@ -2233,15 +2676,27 @@ function freePositionResetControl(element) {
   const button = document.createElement('button');
   button.type = 'button';
   button.textContent = '位置归零';
+  button.disabled = !canvas.hasFreePositionChange(element);
   button.onclick = () => canvas.resetFreePosition(element);
   row.append(hint, button);
   return row;
 }
 
 function renderInspectors() {
-  const element = model.selected;
+  const selection = model.selectedElements();
+  const element = selection.length === 1 ? model.selected : null;
   const targets = ['style-inspector', 'attribute-inspector', 'behavior-inspector', 'markup-inspector'].map(byId);
   renderSelectionSummary(element);
+  if (selection.length > 1) {
+    const emptyStates = [
+      ['boxes', `已选择 ${selection.length} 个控件`, '多选用于创建组合控件。需要调整样式时，请先单选一个控件。'],
+      ['boxes', '多选组合模式', '单控件属性已暂停，避免只修改最后选择的控件。'],
+      ['boxes', '多选组合模式', '创建组合后，可以单选组合或内部控件配置交互。'],
+      ['boxes', '准备创建组合', '点击画布底部的“创建组合控件”，保存所选控件的副本。'],
+    ];
+    targets.forEach((target, index) => { target.innerHTML = emptyStateMarkup(...emptyStates[index]); });
+    return;
+  }
   if (!element) {
     const emptyStates = [
       ['sliders', '选择一个元素', '在画布或结构树中选择元素后，可以调整字体、布局、间距和外观。'],
@@ -2261,9 +2716,9 @@ function renderInspectors() {
 function renderStyleInspector(element) {
   const root = byId('style-inspector');
   const computed = element.ownerDocument.defaultView.getComputedStyle(element);
-  root.replaceChildren(
+  const sections = [
     boxModelDiagram(element, computed),
-    group('自由位置', [
+    element === model.doc?.body ? null : group('自由位置', [
       freePositionControl(element, '水平偏移 X', 'x'),
       freePositionControl(element, '垂直偏移 Y', 'y'),
       freePositionResetControl(element),
@@ -2299,7 +2754,8 @@ function renderStyleInspector(element) {
       styleControl(element, '透明度', 'opacity', element.style.opacity || computed.opacity),
       styleControl(element, 'Transform', 'transform', element.style.transform || ''),
     ]),
-  );
+  ];
+  root.replaceChildren(...sections.filter(Boolean));
 }
 
 function rgbToHex(value) {
@@ -2324,10 +2780,17 @@ function renderAttributeInspector(element) {
     const chip = document.createElement('span');
     chip.className = 'class-chip';
     chip.innerHTML = `${escapeText(name)}<button type="button">×</button>`;
-    pick('button', chip).onclick = () => { element.classList.remove(name); model.checkpoint('删除 class'); renderInspectors(); renderTree(); };
+    pick('button', chip).onclick = () => {
+      releaseTransientBrowseAttribute(element, 'class');
+      element.classList.remove(name);
+      model.checkpoint('删除 class');
+      renderInspectors();
+      renderTree();
+    };
     chipList.append(chip);
   });
   classes.append(chipList, control('添加', '', (value) => {
+    releaseTransientBrowseAttribute(element, 'class');
     value.split(/\s+/).filter(Boolean).forEach((name) => element.classList.add(name.replace(/^\./, '')));
     model.checkpoint('添加 class');
     renderInspectors();
@@ -2338,7 +2801,8 @@ function renderAttributeInspector(element) {
   Array.from(element.attributes).filter((attribute) => {
     return !['class', 'id', 'style', 'contenteditable', 'data-hd-editing'].includes(attribute.name)
       && !attribute.name.startsWith('data-hd-inert-')
-      && attribute.name !== 'data-hd-script-placeholder';
+      && attribute.name !== 'data-hd-script-placeholder'
+      && attribute.name !== BROWSE_PRESENTATION_MARKER;
   }).forEach((attribute) => {
     const row = document.createElement('div');
     row.className = 'attribute-row';
@@ -2357,7 +2821,12 @@ function renderAttributeInspector(element) {
     };
     name.onchange = update;
     value.onchange = update;
-    remove.onclick = () => { element.removeAttribute(attribute.name); model.checkpoint('删除属性'); renderInspectors(); };
+    remove.onclick = () => {
+      releaseTransientBrowseAttribute(element, attribute.name);
+      element.removeAttribute(attribute.name);
+      model.checkpoint('删除属性');
+      renderInspectors();
+    };
     row.append(name, value, remove);
     attributes.append(row);
   });
@@ -2368,6 +2837,7 @@ function renderAttributeInspector(element) {
   add.onclick = async () => {
     const name = await modal.prompt('添加属性', '输入属性名称，例如 aria-label 或 data-id。');
     if (!name || /[\s"'<>/=]/.test(name)) return;
+    releaseTransientBrowseAttribute(element, name);
     element.setAttribute(name, '');
     model.checkpoint('添加属性');
     renderInspectors();
@@ -2501,6 +2971,19 @@ class FileController {
   get canLink() { return window.isSecureContext && 'showOpenFilePicker' in window; }
 
   async open() {
+    if (desktopBridge) {
+      try {
+        const file = await desktopBridge.openHtml();
+        if (!file) return;
+        await this.load(file.html, file.name, null, file.lastModified, {
+          desktopFileToken: file.token,
+          fileSignature: this.signature(file, file.html),
+        });
+      } catch (error) {
+        toast(`无法打开文件：${error.message}`, 'error');
+      }
+      return;
+    }
     if (!this.canLink) {
       toast('当前浏览器不支持直接写回，将改用导入模式', 'error');
       this.picker.click();
@@ -2536,12 +3019,15 @@ class FileController {
   }
 
   async load(html, name, handle = null, mtime = null, options = {}) {
+    const desktopFileToken = options.desktopFileToken || null;
+    const linked = Boolean(handle || desktopFileToken);
     model.fileName = name || 'untitled.html';
     model.fileHandle = handle;
+    model.desktopFileToken = desktopFileToken;
     model.fileMtime = mtime;
     model.fileSignature = options.fileSignature || null;
     model.documentId = options.documentId
-      || `${handle ? 'file' : 'import'}:${model.fileName}:${contentFingerprint(html)}`;
+      || `${linked ? 'file' : 'import'}:${model.fileName}:${contentFingerprint(html)}`;
     model.sourceText = html;
     activateVisualWorkspace();
     await canvas.load(html);
@@ -2553,10 +3039,10 @@ class FileController {
     } else model.markSaved(canonical);
     showStudio();
     updateDocumentState();
-    byId('refresh-button').disabled = !handle;
-    byId('diff-button').disabled = !handle;
+    byId('refresh-button').disabled = !linked;
+    byId('diff-button').disabled = !linked;
     const relativeReferences = countProjectRelativeReferences(html);
-    const loadedMessage = handle ? `已关联 ${model.fileName}` : `已导入 ${model.fileName}`;
+    const loadedMessage = linked ? `已关联 ${model.fileName}` : `已导入 ${model.fileName}`;
     if (relativeReferences) {
       toast(`${loadedMessage}；检测到 ${relativeReferences} 个相对路径，请设置 <base> 或改用内联资源`, 'error');
       setStatus(`文档已载入 · ${relativeReferences} 个相对资源可能需要路径基址`);
@@ -2566,6 +3052,7 @@ class FileController {
   async newDocument() {
     model.fileName = 'untitled.html';
     model.fileHandle = null;
+    model.desktopFileToken = null;
     model.fileMtime = null;
     model.fileSignature = null;
     model.documentId = `new:${window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`}`;
@@ -2582,8 +3069,22 @@ class FileController {
   async save() {
     const html = model.currentText();
     if (!html) return;
-    if (!model.fileHandle) return this.export(html, { markSaved: true });
+    if (!model.fileHandle && !model.desktopFileToken) return this.export(html, { markSaved: true });
     try {
+      if (model.desktopFileToken) {
+        const latest = await desktopBridge.readHtml(model.desktopFileToken);
+        const latestSignature = this.signature(latest, latest.html);
+        if (model.fileSignature && !this.signaturesMatch(latestSignature, model.fileSignature)) {
+          const overwrite = await modal.confirm('磁盘文件已变化', '文件在其他程序中被修改。是否覆盖磁盘版本？', '仍然覆盖');
+          if (!overwrite) return;
+        }
+        const savedFile = await desktopBridge.writeHtml(model.desktopFileToken, html);
+        model.fileMtime = savedFile.lastModified;
+        model.fileSignature = this.signature(savedFile, html);
+        model.markSaved(html);
+        toast('已保存到本地文件', 'success');
+        return;
+      }
       const latest = await model.fileHandle.getFile();
       const latestText = await latest.text();
       const latestSignature = this.signature(latest, latestText);
@@ -2602,7 +3103,32 @@ class FileController {
     } catch (error) { toast(`保存失败：${error.message}`, 'error'); }
   }
 
-  export(html = model.currentText(), options = {}) {
+  async export(html = model.currentText(), options = {}) {
+    if (desktopBridge) {
+      try {
+        const savedFile = await desktopBridge.saveHtml({
+          html,
+          suggestedName: model.fileName || 'untitled.html',
+          link: Boolean(options.markSaved),
+        });
+        if (!savedFile) return;
+        if (options.markSaved) {
+          model.fileHandle = null;
+          model.desktopFileToken = savedFile.token;
+          model.fileName = savedFile.name;
+          model.fileMtime = savedFile.lastModified;
+          model.fileSignature = this.signature(savedFile, html);
+          model.markSaved(html);
+          byId('refresh-button').disabled = false;
+          byId('diff-button').disabled = false;
+          updateDocumentState();
+        }
+        toast(`${options.markSaved ? '已保存' : '已导出副本'} ${savedFile.name}`, 'success');
+      } catch (error) {
+        toast(`${options.markSaved ? '保存' : '导出'}失败：${error.message}`, 'error');
+      }
+      return;
+    }
     const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
@@ -2614,8 +3140,16 @@ class FileController {
   }
 
   async refresh() {
-    if (!model.fileHandle) return;
+    if (!model.fileHandle && !model.desktopFileToken) return;
     if (model.dirty && !(await modal.confirm('重新读取文件', '当前未保存修改会被磁盘版本替换。', '放弃修改'))) return;
+    if (model.desktopFileToken) {
+      const file = await desktopBridge.readHtml(model.desktopFileToken);
+      await this.load(file.html, file.name, null, file.lastModified, {
+        desktopFileToken: file.token,
+        fileSignature: this.signature(file, file.html),
+      });
+      return;
+    }
     const file = await model.fileHandle.getFile();
     const html = await file.text();
     await this.load(html, file.name, model.fileHandle, file.lastModified, {
@@ -2624,10 +3158,16 @@ class FileController {
   }
 
   async showDiff() {
-    if (!model.fileHandle) return;
+    if (!model.fileHandle && !model.desktopFileToken) return;
     try {
-      const file = await model.fileHandle.getFile();
-      const disk = await file.text();
+      let disk;
+      if (model.desktopFileToken) {
+        const file = await desktopBridge.readHtml(model.desktopFileToken);
+        disk = file.html;
+      } else {
+        const file = await model.fileHandle.getFile();
+        disk = await file.text();
+      }
       const current = model.currentText();
       if (disk === current) return toast('编辑器与磁盘文件一致', 'success');
       modal.diff(disk, current);
@@ -2653,8 +3193,10 @@ class AiController {
     this.drawer.hidden = false;
     byId('studio').classList.add('ai-open');
     byId('ai-button').classList.add('active');
+    setCanvasPageMode(true, { announce: false });
     this.updateTarget();
     requestAnimationFrame(() => { canvas.updateOverlay(); updateCanvasInfo(); });
+    window.setTimeout(scheduleCanvasViewportUpdate, 210);
     byId('ai-input').focus();
     if (this.modelsLoadedFor !== byId('ai-cli').value) this.loadModels({ selected: this.savedModel });
   }
@@ -2664,6 +3206,7 @@ class AiController {
     byId('studio').classList.remove('ai-open');
     byId('ai-button').classList.remove('active');
     requestAnimationFrame(() => { canvas.updateOverlay(); updateCanvasInfo(); });
+    window.setTimeout(scheduleCanvasViewportUpdate, 210);
     byId('ai-button').focus();
   }
 
@@ -2676,7 +3219,12 @@ class AiController {
     return message;
   }
 
-  updateTarget() { byId('ai-target').textContent = model.selected ? `目标：${canvas.describe(model.selected)}` : '目标：整个页面'; }
+  updateTarget() {
+    const selection = model.selectedElements();
+    byId('ai-target').textContent = selection.length > 1
+      ? `目标：${selection.length} 个已选控件（以最后选择为主）`
+      : model.selected ? `目标：${canvas.describe(model.selected)}` : '目标：整个页面';
+  }
 
   setConnection(state, title, detail = '') {
     const root = byId('ai-connection');
@@ -3043,23 +3591,40 @@ const ai = new AiController();
 
 function readSnippets() { return safeJson(localStorage.getItem(STORAGE.snippets), []); }
 
+function insertSnippet(snippet) {
+  if (!snippet?.html || !model.doc) return false;
+  const selections = model.selectedElements();
+  const target = selections.length === 1 ? model.selected : model.doc.body;
+  const node = canvas.prepareDuplicate(canvas.createNode(snippet.html));
+  const inserted = node && canvas.insertNode(node, target, selections.length !== 1 || canvas.canContain(target, node) ? 'inside' : 'after');
+  if (inserted) {
+    setStatus(`已插入${snippet.kind === 'composite' ? '组合控件' : '自定义控件'}“${snippet.name}”`);
+    toast(`已插入${snippet.name}`, 'success');
+  }
+  return Boolean(inserted);
+}
+
 function renderSnippets() {
   const root = byId('snippet-list');
   const snippets = readSnippets();
   root.replaceChildren();
-  if (!snippets.length) root.innerHTML = emptyStateMarkup('bookmark', '建立你的组件片段', '选择画布元素并保存，以便在其他位置快速复用。');
+  if (!snippets.length) root.innerHTML = emptyStateMarkup('bookmark', '还没有自定义控件', '选择一个控件可以单独保存；多选两个以上控件可以创建组合。');
   snippets.forEach((snippet) => {
     const row = document.createElement('div');
     row.className = 'snippet-item';
     row.draggable = true;
-    row.innerHTML = `<span>${escapeText(snippet.name)}</span><button type="button">×</button>`;
+    const itemCount = Math.max(1, Number(snippet.itemCount) || 1);
+    const typeLabel = snippet.kind === 'composite' ? `组合控件 · ${itemCount} 项` : '单个控件';
+    row.innerHTML = `<span class="snippet-copy"><strong>${escapeText(snippet.name)}</strong><small>${escapeText(typeLabel)}</small></span><span class="snippet-actions"><button class="snippet-insert" type="button" aria-label="插入${escapeText(snippet.name)}">+</button><button class="snippet-remove" type="button" aria-label="删除${escapeText(snippet.name)}">×</button></span>`;
     row.ondragstart = (event) => event.dataTransfer.setData('application/x-html-designer-snippet', snippet.html);
-    row.ondblclick = () => {
-      const target = model.selected || model.doc?.body;
-      const node = canvas.createNode(snippet.html);
-      canvas.insertNode(node, target, !model.selected || canvas.canContain(target, node) ? 'inside' : 'after');
+    row.ondblclick = (event) => {
+      if (!event.target.closest('button')) insertSnippet(snippet);
     };
-    pick('button', row).onclick = (event) => {
+    pick('.snippet-insert', row).onclick = (event) => {
+      event.stopPropagation();
+      insertSnippet(snippet);
+    };
+    pick('.snippet-remove', row).onclick = (event) => {
       event.stopPropagation();
       localStorage.setItem(STORAGE.snippets, JSON.stringify(snippets.filter((item) => item.id !== snippet.id)));
       renderSnippets();
@@ -3070,26 +3635,103 @@ function renderSnippets() {
 
 async function saveSnippet() {
   if (!model.selected) return;
-  const name = await modal.prompt('保存为片段', '为当前元素输入一个名称。', canvas.describe(model.selected));
+  const name = await modal.prompt('保存单个控件', '为当前控件输入一个名称。之后可以在“自定义”中重复插入。', canvas.describe(model.selected));
   if (!name) return;
   const snippets = readSnippets();
-  snippets.unshift({ id: crypto.randomUUID(), name, html: serializeEditableElement(model.selected) });
+  snippets.unshift({
+    id: crypto.randomUUID(),
+    name,
+    html: serializeEditableElement(model.selected),
+    kind: 'single',
+    itemCount: 1,
+    createdAt: Date.now(),
+  });
   localStorage.setItem(STORAGE.snippets, JSON.stringify(snippets.slice(0, 50)));
   renderSnippets();
-  toast('片段已保存', 'success');
+  toast('自定义控件已保存', 'success');
+}
+
+function compositeSelectionElements() {
+  const selected = model.selectedElements().filter(element => element !== model.doc?.body);
+  return selected
+    .filter(element => !selected.some(other => other !== element && other.contains(element)))
+    .sort((left, right) => (
+      left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_PRECEDING ? 1 : -1
+    ));
+}
+
+function compositeLayoutStyle(elements) {
+  const parent = elements.length && elements.every(element => element.parentElement === elements[0].parentElement)
+    ? elements[0].parentElement
+    : null;
+  const computed = parent ? parent.ownerDocument.defaultView.getComputedStyle(parent) : null;
+  const gap = computed && computed.gap !== 'normal' ? computed.gap : '12px';
+  if (computed?.display.includes('grid')) {
+    return `display:grid;grid-template-columns:repeat(${Math.min(elements.length, 4)},minmax(0,1fr));gap:${gap};`;
+  }
+  if (computed?.display.includes('flex')) {
+    const direction = computed.flexDirection || 'row';
+    const align = computed.alignItems || 'flex-start';
+    return `display:flex;flex-direction:${direction};flex-wrap:wrap;align-items:${align};gap:${gap};`;
+  }
+  if (parent) return 'display:block;';
+  return 'display:flex;flex-wrap:wrap;align-items:flex-start;gap:12px;';
+}
+
+async function createCompositeControl() {
+  const elements = compositeSelectionElements();
+  if (elements.length < 2) {
+    toast('请多选两个互不包含的控件', 'error');
+    return;
+  }
+  const name = await modal.prompt('创建组合控件', `已选择 ${elements.length} 个控件。请输入组合名称。`, `组合控件 ${readSnippets().filter(item => item.kind === 'composite').length + 1}`);
+  if (!name) return;
+  const wrapper = model.doc.createElement('div');
+  wrapper.setAttribute('data-hd-composite', 'true');
+  wrapper.setAttribute('data-hd-component', name);
+  wrapper.setAttribute('aria-label', name);
+  wrapper.setAttribute('style', compositeLayoutStyle(elements));
+  elements.forEach(element => wrapper.append(element.cloneNode(true)));
+  const snippets = readSnippets();
+  snippets.unshift({
+    id: crypto.randomUUID(),
+    name,
+    html: serializeEditableElement(wrapper),
+    kind: 'composite',
+    itemCount: elements.length,
+    createdAt: Date.now(),
+  });
+  localStorage.setItem(STORAGE.snippets, JSON.stringify(snippets.slice(0, 50)));
+  renderSnippets();
+  model.select(null);
+  pick('[data-tabs="left"] [data-panel="snippets"]')?.click();
+  setStatus(`已创建组合控件“${name}” · ${elements.length} 个基础控件`);
+  toast(`组合控件“${name}”已保存`, 'success');
 }
 
 function updateDocumentState() {
-  byId('document-name').textContent = model.fileName + (model.fileHandle ? ' · linked' : '');
+  const linked = Boolean(model.fileHandle || model.desktopFileToken);
+  byId('document-name').textContent = model.fileName + (linked ? ' · linked' : '');
   byId('document-status').textContent = model.dirty ? '未保存' : '已保存';
   byId('document-status').classList.toggle('dirty', model.dirty);
   byId('undo-button').disabled = model.mode !== 'visual' || model.cursor <= 0;
   byId('redo-button').disabled = model.mode !== 'visual' || model.cursor >= model.history.length - 1;
-  ['duplicate-button', 'delete-button', 'parent-button', 'move-up-button', 'move-down-button'].forEach((id) => {
+  const selection = model.mode === 'visual' ? model.selectedElements() : [];
+  const selected = selection.length === 1 ? model.selected : null;
+  const isRoot = selected === model.doc?.body;
+  const actionStates = {
+    'duplicate-button': Boolean(selected) && !isRoot,
+    'delete-button': Boolean(selected) && !isRoot,
+    'parent-button': Boolean(selected?.parentElement && selected.parentElement !== model.doc?.documentElement),
+    'move-up-button': Boolean(selected?.previousElementSibling) && !isRoot,
+    'move-down-button': Boolean(selected?.nextElementSibling) && !isRoot,
+  };
+  Object.entries(actionStates).forEach(([id, enabled]) => {
     const button = byId(id);
-    if (button) button.disabled = model.mode !== 'visual' || !model.selected;
+    if (button) button.disabled = !enabled;
   });
   ['left-rail-button', 'right-rail-button'].forEach((id) => { byId(id).disabled = model.mode !== 'visual'; });
+  if (desktopBridge) document.title = `${model.fileName || 'untitled.html'} — HTML Designer`;
 }
 
 function showStudio() {
@@ -3178,7 +3820,10 @@ async function performModeChange(mode, options = {}) {
     const committed = await commitSourceChanges(generation);
     if (!committed || generation !== modeGeneration) return;
   }
+  let browseState = null;
   if (model.mode === 'browse') {
+    browseState = await canvas.captureBrowseState();
+    if (generation !== modeGeneration) return;
     canvas.exitBrowse();
     model.mode = 'visual';
   }
@@ -3191,14 +3836,19 @@ async function performModeChange(mode, options = {}) {
     model.mode = 'source';
     setStatus('源码模式 · 切回编辑或浏览时应用修改');
   } else if (mode === 'browse') {
+    const html = model.serializeDocument();
+    const restoreState = canvas.captureVisualState(html);
     model.mode = 'browse';
-    canvas.enterBrowse(model.serializeDocument());
+    canvas.enterBrowse(html, restoreState);
     setStatus('浏览模式 · 页面链接、表单和脚本交互已启用');
   } else {
     model.mode = 'visual';
     canvas.preview = false;
+    const pageLabel = browseState ? await canvas.applyBrowseStateToEditor(browseState) : '';
     canvas.updateOverlay();
-    setStatus('编辑模式 · 点击页面元素打开编辑菜单');
+    setStatus(pageLabel
+      ? `编辑模式 · 当前视图：${pageLabel} · 点击元素即可编辑`
+      : '编辑模式 · 点击页面元素打开编辑菜单');
   }
   applyModeLayout(mode);
   updateDocumentState();
@@ -3257,7 +3907,7 @@ const DEVICE_VIEWPORTS = Object.freeze({
 let canvasZoom = 1;
 let canvasFitMode = true;
 let canvasFitFrame = 0;
-let canvasPageMode = false;
+let canvasPageMode = true;
 let canvasPageHeight = 0;
 let canvasPageMeasureFrame = 0;
 
@@ -3267,7 +3917,7 @@ function currentBaseViewport() {
 
 function currentViewport() {
   const viewport = currentBaseViewport();
-  if (canvasPageMode && model.mode === 'visual' && canvasPageHeight > viewport.height) {
+  if (canvasPageMode && canvasPageHeight > viewport.height) {
     return { ...viewport, height: canvasPageHeight, label: `${viewport.label} · 整页` };
   }
   return viewport;
@@ -3279,8 +3929,13 @@ function applyCanvasHeight(height) {
   canvasPageHeight = pixels;
 }
 
-function scheduleFullPageMeasurement() {
+function scheduleFullPageMeasurement(viewState = null) {
   window.cancelAnimationFrame(canvasPageMeasureFrame);
+  const workbench = byId('workbench');
+  const workspace = viewState || {
+    workspaceScrollX: Math.round(workbench?.scrollLeft || 0),
+    workspaceScrollY: Math.round(workbench?.scrollTop || 0),
+  };
   canvasPageMeasureFrame = window.requestAnimationFrame(() => {
     if (!canvasPageMode || model.mode !== 'visual' || !model.doc?.documentElement) return;
     const base = currentBaseViewport();
@@ -3297,24 +3952,30 @@ function scheduleFullPageMeasurement() {
       fitCanvas(false);
       updateCanvasInfo();
       canvas.updateOverlay();
+      canvas.restoreWorkspaceView(workspace);
     });
   });
 }
 
-function toggleCanvasPageMode() {
-  canvasPageMode = !canvasPageMode;
+function setCanvasPageMode(active, options = {}) {
+  canvasPageMode = Boolean(active);
   byId('canvas-page-button').classList.toggle('active', canvasPageMode);
   byId('canvas-page-button').setAttribute('aria-pressed', String(canvasPageMode));
   if (canvasPageMode) {
-    scheduleFullPageMeasurement();
-    setStatus('完整页面画板 · 保持设备宽度并展开页面高度');
+    if (model.mode === 'browse') canvas.measureBrowsePage();
+    else scheduleFullPageMeasurement();
+    if (options.announce !== false) setStatus('完整页面画板 · 整页等比显示');
   } else {
     canvasPageHeight = 0;
     byId('canvas-stage').style.removeProperty('--canvas-height');
     fitCanvas(false);
     updateCanvasInfo();
-    setStatus('设备视口画板 · 使用固定设备宽高');
+    if (options.announce !== false) setStatus('设备视口画板 · 使用固定设备宽高');
   }
+}
+
+function toggleCanvasPageMode() {
+  setCanvasPageMode(!canvasPageMode);
 }
 
 function updateCanvasInfo() {
@@ -3332,7 +3993,8 @@ function updateCanvasInfo() {
 
 function setCanvasZoom(value, announce = true, keepFitMode = false) {
   if (!keepFitMode) canvasFitMode = false;
-  canvasZoom = Math.min(1.5, Math.max(.25, Math.round(Number(value) * 100) / 100));
+  const minimum = keepFitMode ? .08 : .25;
+  canvasZoom = Math.min(1.5, Math.max(minimum, Math.round(Number(value) * 100) / 100));
   document.documentElement.style.setProperty('--canvas-scale', String(canvasZoom));
   document.documentElement.style.setProperty('--canvas-ui-scale', String(1 / canvasZoom));
   byId('zoom-value').textContent = `${Math.round(canvasZoom * 100)}%`;
@@ -3347,9 +4009,8 @@ function fitCanvas(announce = true) {
   const availableWidth = Math.max(220, workbench.clientWidth - 48);
   const availableHeight = Math.max(220, workbench.clientHeight - 124);
   const scale = Math.min(1, availableWidth / viewport.width, availableHeight / viewport.height);
-  const pageScale = Math.min(1, availableWidth / viewport.width);
   canvasFitMode = true;
-  setCanvasZoom(canvasPageMode && model.mode === 'visual' ? pageScale : scale, announce, true);
+  setCanvasZoom(scale, announce, true);
 }
 
 function scheduleCanvasViewportUpdate() {
@@ -3367,7 +4028,10 @@ function setCanvasDevice(device) {
   if (!DEVICE_VIEWPORTS[device]) return;
   byId('canvas-shell').dataset.device = device;
   byId('canvas-stage').dataset.device = device;
-  if (canvasPageMode) scheduleFullPageMeasurement();
+  if (canvasPageMode) {
+    if (model.mode === 'browse') canvas.measureBrowsePage();
+    else scheduleFullPageMeasurement();
+  }
   else fitCanvas(false);
 }
 
@@ -3546,6 +4210,8 @@ function bindActions() {
   byId('quick-insert-button').onclick = openInsertPalette;
   byId('hud-insert-button').onclick = openInsertPalette;
   byId('save-snippet-button').onclick = saveSnippet;
+  byId('create-composite-button').onclick = createCompositeControl;
+  byId('clear-multi-selection').onclick = () => model.select(null);
   byId('shortcut-button').onclick = () => modal.shortcuts();
   byId('zoom-out-button').onclick = () => setCanvasZoom(canvasZoom - .1);
   byId('zoom-in-button').onclick = () => setCanvasZoom(canvasZoom + .1);
@@ -3578,6 +4244,7 @@ function bindKeyboard() {
   document.addEventListener('keydown', (event) => {
     const command = event.metaKey || event.ctrlKey;
     const field = ['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName) || event.target.isContentEditable;
+    const selectionCount = model.selectedElements().length;
     if (event.key === 'Escape' && canvas.moveSession) { event.preventDefault(); canvas.endMove(true); return; }
     if (event.key === 'Escape' && byId('modal-root').childElementCount && !pick('.command-card', byId('modal-root'))) { event.preventDefault(); modal.close(); return; }
     if (event.key === 'Escape' && !byId('ai-drawer').hidden) { event.preventDefault(); ai.close(); return; }
@@ -3586,8 +4253,8 @@ function bindKeyboard() {
     if (command && event.key.toLowerCase() === 's') { event.preventDefault(); files.save(); return; }
     if (field) return;
     if (command && event.key.toLowerCase() === 'z') { event.preventDefault(); model.travel(event.shiftKey ? 1 : -1); return; }
-    if (command && event.key.toLowerCase() === 'd') { event.preventDefault(); canvas.runCommand('duplicate'); return; }
-    if (!command && !event.altKey && !event.shiftKey && /^Arrow(Left|Right|Up|Down)$/.test(event.key) && model.selected) {
+    if (command && event.key.toLowerCase() === 'd' && selectionCount === 1) { event.preventDefault(); canvas.runCommand('duplicate'); return; }
+    if (!command && !event.altKey && !event.shiftKey && /^Arrow(Left|Right|Up|Down)$/.test(event.key) && model.selected && selectionCount === 1) {
       event.preventDefault();
       const offsets = {
         ArrowLeft: [-1, 0],
@@ -3598,10 +4265,10 @@ function bindKeyboard() {
       canvas.nudgeSelected(...offsets[event.key]);
       return;
     }
-    if (event.shiftKey && event.key === 'ArrowUp' && model.selected) { event.preventDefault(); canvas.runCommand('parent'); return; }
-    if (event.altKey && event.key === 'ArrowUp' && model.selected) { event.preventDefault(); canvas.runCommand('before'); return; }
-    if (event.altKey && event.key === 'ArrowDown' && model.selected) { event.preventDefault(); canvas.runCommand('after'); return; }
-    if ((event.key === 'Delete' || event.key === 'Backspace') && model.selected) { event.preventDefault(); canvas.runCommand('remove'); return; }
+    if (event.shiftKey && event.key === 'ArrowUp' && model.selected && selectionCount === 1) { event.preventDefault(); canvas.runCommand('parent'); return; }
+    if (event.altKey && event.key === 'ArrowUp' && model.selected && selectionCount === 1) { event.preventDefault(); canvas.runCommand('before'); return; }
+    if (event.altKey && event.key === 'ArrowDown' && model.selected && selectionCount === 1) { event.preventDefault(); canvas.runCommand('after'); return; }
+    if ((event.key === 'Delete' || event.key === 'Backspace') && model.selected && selectionCount === 1) { event.preventDefault(); canvas.runCommand('remove'); return; }
     if (event.key === 'Escape') { if (byId('studio').classList.contains('preview-mode')) exitPreview(); else model.select(null); return; }
     if (event.key === '?') { event.preventDefault(); modal.shortcuts(); return; }
     if (event.key === '/' && !byId('studio').hidden) {
@@ -3624,6 +4291,32 @@ function bindKeyboard() {
   }, true);
 }
 
+function bindDesktopBridge() {
+  if (!desktopBridge) return;
+  desktopBridge.onCommand((command) => {
+    const actions = {
+      new: () => files.newDocument(),
+      open: () => files.open(),
+      save: () => files.save(),
+      export: () => files.export(model.currentText(), { markSaved: false }),
+      home: () => showWelcome(),
+      'command-palette': () => openCommandPalette(),
+      shortcuts: () => modal.shortcuts(),
+    };
+    actions[command]?.();
+  });
+  desktopBridge.onOpenFile(async (file) => {
+    try {
+      await files.load(file.html, file.name, null, file.lastModified, {
+        desktopFileToken: file.token,
+        fileSignature: files.signature(file, file.html),
+      });
+    } catch (error) {
+      toast(`无法打开文件：${error.message}`, 'error');
+    }
+  });
+}
+
 function bindFileDrop() {
   document.addEventListener('dragover', (event) => {
     if (event.dataTransfer?.types?.includes('Files')) {
@@ -3643,14 +4336,17 @@ function bindFileDrop() {
 }
 
 model.addEventListener('selection', () => {
+  const selection = model.selectedElements();
   renderPath();
-  if (model.selected && model.mode === 'visual') canvas.showSelectionMenu();
+  if (selection.length === 1 && model.selected && model.mode === 'visual') canvas.showSelectionMenu();
   canvas.updateOverlay();
   renderTree();
   renderInspectors();
-  byId('save-snippet-button').disabled = !model.selected;
+  byId('save-snippet-button').disabled = selection.length !== 1 || model.selected === model.doc?.body;
   updateDocumentState();
-  if (model.selected?.isConnected) {
+  if (selection.length > 1) {
+    setStatus(`已选择 ${selection.length} 个控件 · Shift / Ctrl / ⌘ 点击继续选择`);
+  } else if (model.selected?.isConnected) {
     const rect = model.selected.getBoundingClientRect();
     const info = componentInfo(model.selected);
     setStatus(`${info.name} · ${canvas.describe(model.selected)} · ${Math.round(rect.width)} × ${Math.round(rect.height)}`);
@@ -3669,6 +4365,9 @@ async function init() {
   applyModeLayout('visual');
   bindTabs();
   bindActions();
+  bindDesktopBridge();
+  byId('canvas-page-button').classList.toggle('active', canvasPageMode);
+  byId('canvas-page-button').setAttribute('aria-pressed', String(canvasPageMode));
   bindKeyboard();
   bindFileDrop();
   renderBlocks();
