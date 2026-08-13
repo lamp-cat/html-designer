@@ -2,6 +2,14 @@
 
 HTML Designer 是一个本地优先的可视化 HTML 工作台。它面向独立 HTML 文档：打开文件后，可以在编辑画布选择元素、修改文字和样式、插入组件，在浏览画布运行页面交互，也可以切换到源码模式完成精确编辑。
 
+## 下载 macOS 应用
+
+[**⬇️ 直接下载 HTML Designer for macOS（Apple Silicon，DMG）**](https://github.com/lamp-cat/html-designer/releases/download/v1.0.0/HTML-Designer-1.0.0-arm64.dmg)
+
+适用于 M1、M2、M3、M4 等 Apple 芯片 Mac，下载后打开 DMG 并将 HTML Designer 拖入“应用程序”即可。当前版本尚未经过 Apple Developer ID 签名与公证；如果 macOS 阻止首次打开，请在 Finder 中右键应用并选择“打开”。
+
+[查看 v1.0.0 发布说明与文件校验信息](https://github.com/lamp-cat/html-designer/releases/tag/v1.0.0)
+
 ## 主要能力
 
 - 可视化选择、文字编辑、复制、删除、自由移动、调整顺序和尺寸。
