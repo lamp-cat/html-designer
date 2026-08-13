@@ -425,24 +425,37 @@ html[data-theme="light"] .brand-button img { filter: invert(1); }
 .workbench {
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
+  overscroll-behavior: contain;
   background:
     linear-gradient(45deg, rgba(255,255,255,0.015) 25%, transparent 25%) 0 0 / 16px 16px,
     linear-gradient(-45deg, rgba(255,255,255,0.015) 25%, transparent 25%) 0 8px / 16px 16px,
     var(--canvas);
 }
 
-.canvas-shell {
+.canvas-stage {
+  --canvas-width: 1440px;
+  --canvas-height: 900px;
   position: relative;
-  width: 100%;
-  height: 100%;
-  margin: 0 auto;
+  width: calc(var(--canvas-width) * var(--canvas-scale));
+  height: calc(var(--canvas-height) * var(--canvas-scale));
+  margin: 54px auto 70px;
   background: #fff;
-  transition: width 180ms ease;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.12), var(--shadow);
 }
 
-.canvas-shell[data-device="tablet"] { width: min(820px, 100%); box-shadow: 0 0 0 1px rgba(0,0,0,0.12), var(--shadow); }
-.canvas-shell[data-device="mobile"] { width: min(390px, 100%); box-shadow: 0 0 0 1px rgba(0,0,0,0.12), var(--shadow); }
+.canvas-stage[data-device="tablet"] { --canvas-width: 820px; --canvas-height: 1180px; }
+.canvas-stage[data-device="mobile"] { --canvas-width: 390px; --canvas-height: 844px; }
+
+.canvas-shell {
+  position: relative;
+  width: var(--canvas-width);
+  height: var(--canvas-height);
+  background: #fff;
+  transform: scale(var(--canvas-scale));
+  transform-origin: top left;
+  transition: transform 180ms ease;
+}
 
 #design-canvas,
 #browse-canvas { display: block; width: 100%; height: 100%; border: 0; background: #fff; }

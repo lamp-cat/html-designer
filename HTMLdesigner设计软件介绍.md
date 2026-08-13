@@ -2,14 +2,6 @@
 
 HTML Designer 是一个本地优先的可视化 HTML 工作台。它面向独立 HTML 文档：打开文件后，可以在编辑画布选择元素、修改文字和样式、插入组件，在浏览画布运行页面交互，也可以切换到源码模式完成精确编辑。
 
-## 下载 macOS 应用
-
-[**⬇️ 直接下载 HTML Designer for macOS（Apple Silicon，DMG）**](https://github.com/lamp-cat/html-designer/releases/download/v1.0.0/HTML-Designer-1.0.0-arm64.dmg)
-
-适用于 M1、M2、M3、M4 等 Apple 芯片 Mac，下载后打开 DMG 并将 HTML Designer 拖入“应用程序”即可。当前版本尚未经过 Apple Developer ID 签名与公证；如果 macOS 阻止首次打开，请在 Finder 中右键应用并选择“打开”。
-
-[查看 v1.0.0 发布说明与文件校验信息](https://github.com/lamp-cat/html-designer/releases/tag/v1.0.0)
-
 ## 主要能力
 
 - 可视化选择、文字编辑、复制、删除、PPT 式自由拖动、坐标微调、结构排序和尺寸调整。
@@ -44,37 +36,6 @@ macOS 和 Windows 也可以分别双击：
 - `start-windows.bat`
 
 一键启动脚本默认使用 `http://localhost:4175/`。
-
-## macOS 应用
-
-项目内置 Electron 桌面壳层，保留本机 AI CLI、文件打开、保存、重新读取和磁盘差异比较能力，并提供 macOS 原生菜单与 `.html/.htm` 文件关联。
-
-首次安装依赖：
-
-```bash
-npm install
-```
-
-开发运行：
-
-```bash
-npm run desktop
-```
-
-构建当前 Mac 架构的应用包和 DMG：
-
-```bash
-npm run desktop:dir
-npm run desktop:build
-```
-
-构建同时支持 Apple Silicon 与 Intel 的通用 DMG：
-
-```bash
-npm run desktop:build:universal
-```
-
-产物位于 `dist-macos/`。本地构建默认可用于开发与内部测试；公开分发前应配置 Apple Developer ID 签名与公证。
 
 ## AI Design
 

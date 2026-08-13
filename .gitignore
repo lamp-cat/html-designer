@@ -7,3 +7,4 @@ node_modules/
 LAUNCH.md
 .playwright-cli/
 output/
+dist-macos/

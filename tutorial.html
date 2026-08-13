@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>图文教程 — HTML Designer</title>
+  <meta name="description" content="用 10 个带真实界面截图与操作高亮的步骤，完整了解 HTML Designer 的打开、编辑、拖动、新增、浏览、AI Design 与保存流程。">
+  <meta name="theme-color" content="#111711">
+  <link rel="icon" href="logo-mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/tutorial.css?v=20260726a">
+</head>
+<body>
+  <header class="tutorial-topbar">
+    <a class="tutorial-brand" href="./" aria-label="返回 HTML Designer 首页">
+      <span class="tutorial-brand-mark"><img src="logo-mark.svg" alt=""></span>
+      <span><strong>HTML Designer</strong><small>图文教程</small></span>
+    </a>
+    <nav class="tutorial-actions" aria-label="教程操作">
+      <a href="guide.html">完整指南</a>
+      <a class="tutorial-open" href="./">打开设计器 <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+  <div class="tutorial-progress" aria-hidden="true"><span id="tutorial-progress"></span></div>
+
+  <main>
+    <section class="tutorial-hero">
+      <div class="tutorial-hero-copy">
+        <p class="tutorial-eyebrow"><span></span> VISUAL WALKTHROUGH · 10 STEPS</p>
+        <h1>从一份 HTML，<br><em>到可以交付的页面。</em></h1>
+        <p class="tutorial-lead">这是一份可跟着操作的 HTML Designer 图文教程。每一步都使用当前产品的真实界面，并把需要点击或观察的位置高亮出来。</p>
+        <div class="tutorial-hero-actions">
+          <a class="tutorial-primary" href="#step-1">开始第 1 步</a>
+          <a href="#before-start">先看使用条件</a>
+        </div>
+      </div>
+      <div class="tutorial-hero-summary" aria-label="教程概要">
+        <div><strong>10</strong><span>核心步骤</span></div>
+        <div><strong>10</strong><span>真实截图</span></div>
+        <div><strong>≈ 12</strong><span>分钟完成</span></div>
+        <p>适用于当前桌面版 HTML Designer。建议在宽屏设备上边看边操作。</p>
+      </div>
+    </section>
+
+    <section class="before-start" id="before-start">
+      <div class="section-kicker">BEFORE YOU START</div>
+      <div class="before-start-head">
+        <h2>使用前，确认这三件事</h2>
+        <p>普通编辑只需要本地服务。只有 AI Design 需要额外安装并登录本机 CLI。</p>
+      </div>
+      <div class="requirement-grid">
+        <article>
+          <span>01</span>
+          <strong>启动本地应用</strong>
+          <p>macOS 双击 <code>start-mac.command</code>，Windows 双击 <code>start-windows.bat</code>；也可以在项目目录运行 <code>npm start</code>。</p>
+        </article>
+        <article>
+          <span>02</span>
+          <strong>优先使用桌面浏览器</strong>
+          <p>Chrome、Edge、Arc 等 Chromium 浏览器可以建立文件写入连接，把修改直接保存回原 HTML。</p>
+        </article>
+        <article>
+          <span>03</span>
+          <strong>按需准备 AI Design</strong>
+          <p>需要 AI 协作时，确保 Codex CLI 或 Claude Code CLI 已安装并完成登录；普通画布编辑不依赖 CLI。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="tutorial-layout" aria-label="HTML Designer 操作步骤">
+      <aside class="tutorial-step-nav" aria-label="步骤目录">
+        <p>操作步骤</p>
+        <nav>
+          <a href="#step-1" data-step-link="1"><span>01</span>开始方式</a>
+          <a href="#step-2" data-step-link="2"><span>02</span>工作区域</a>
+          <a href="#step-3" data-step-link="3"><span>03</span>选择组件</a>
+          <a href="#step-4" data-step-link="4"><span>04</span>自由拖动</a>
+          <a href="#step-5" data-step-link="5"><span>05</span>新增组件</a>
+          <a href="#step-6" data-step-link="6"><span>06</span>调整组件</a>
+          <a href="#step-7" data-step-link="7"><span>07</span>编辑源码</a>
+          <a href="#step-8" data-step-link="8"><span>08</span>浏览页面</a>
+          <a href="#step-9" data-step-link="9"><span>09</span>AI Design</a>
+          <a href="#step-10" data-step-link="10"><span>10</span>保存导出</a>
+        </nav>
+        <div class="nav-finish"><span></span>完成后即可保存页面</div>
+      </aside>
+
+      <div class="tutorial-steps">
+        <article class="tutorial-step" id="step-1" data-step="1">
+          <header class="step-head">
+            <div class="step-number">01</div>
+            <div>
+              <p>START A PROJECT</p>
+              <h2>选择一种开始方式</h2>
+              <p class="step-summary">打开应用后，先根据文件来源选择入口。已有本地文件时，优先使用“打开本地文件”。</p>
+            </div>
+          </header>
+          <div class="step-instructions">
+            <strong>怎么选</strong>
+            <ul>
+              <li><b>打开本地文件</b>：建立可写连接，后续“保存”会写回原文件。</li>
+              <li><b>导入 HTML</b>：读取一个文件，但不保留写入连接；完成后下载副本。</li>
+              <li><b>新建设计</b>：载入一份独立示例页面，适合快速体验。</li>
+              <li><b>AI Design</b>：新建页面并同时打开 AI 设计面板。</li>
+            </ul>
+          </div>
+          <figure class="tutorial-figure">
+            <button class="tutorial-shot" type="button" aria-label="放大第 1 步截图">
+              <img src="assets/tutorial/step-01-start.png" width="1440" height="960" alt="HTML Designer 开始页，右侧显示四种开始方式" fetchpriority="high">
+              <span class="spotlight primary" style="--x:53.5%;--y:16%;--w:42%;--h:70%;" data-label="从这里选择开始方式" aria-hidden="true"><i>1</i></span>
+            </button>
+            <figcaption><span>高亮区域</span>四个入口都在开始页右侧；也可以直接把 <code>.html</code> 文件拖入页面。</figcaption>
+          </figure>
+          <div class="step-note"><strong>建议</strong><span>需要持续修改同一个本地文件时，请使用“打开本地文件”，不要使用“导入 HTML”。</span></div>
+          <a class="step-next" href="#step-2">下一步：认识工作区域 <span>↓</span></a>
+        </article>
+
+        <article class="tutorial-step" id="step-2" data-step="2">
+          <header class="step-head">
+            <div class="step-number">02</div>
+            <div>
+              <p>KNOW THE WORKSPACE</p>
+              <h2>认识三栏编辑工作区</h2>
+              <p class="step-summary">进入设计器后，左侧负责找组件，中间显示完整 HTML，右侧负责精确调整当前组件。</p>
+            </div>
+          </header>
+          <div class="step-instructions">
+            <strong>三个区域</strong>
+            <ol>
+              <li><b>左侧：</b>基础控件、页面结构和自定义控件。</li>
+              <li><b>中间：</b>完整页面画布及缩放控制。</li>
+              <li><b>右侧：</b>样式、属性、交互和当前元素 HTML。</li>
+            </ol>
+          </div>
+          <figure class="tutorial-figure">
+            <button class="tutorial-shot" type="button" aria-label="放大第 2 步截图">
+              <img src="assets/tutorial/step-02-workspace.png" width="1440" height="960" alt="HTML Designer 三栏编辑工作区">
+              <span class="spotlight primary" style="--x:27.8%;--y:11%;--w:42%;--h:80%;" data-label="中间是完整页面画布" aria-hidden="true"><i>2</i></span>
+              <span class="spotlight secondary" style="--x:.5%;--y:7%;--w:17%;--h:89%;" data-label="组件与结构" aria-hidden="true"></span>
+              <span class="spotlight secondary" style="--x:79.2%;--y:7%;--w:20.3%;--h:89%;" data-label="检查器" aria-hidden="true"></span>
+            </button>
+            <figcaption><span>顶部工具栏</span>“编辑 / 浏览 / 源码”切换工作方式；桌面、平板、手机按钮只改变画布设备宽度。</figcaption>
+          </figure>
+          <div class="step-note"><strong>画布比例</strong><span>完整页面画板默认按原设备宽度渲染，再整体缩放到工作区，不会为了适应窗口而改动页面内部布局。</span></div>
+          <a class="step-next" href="#step-3">下一步：选择并编辑组件 <span>↓</span></a>
+        </article>
+
+        <article class="tutorial-step" id="step-3" data-step="3">
+          <header class="step-head">
+            <div class="step-number">03</div>
+            <div>
+              <p>SELECT &amp; EDIT</p>
+              <h2>点击页面中的组件</h2>
+              <p class="step-summary">在“编辑”模式点击文字、按钮、图片、区块或表格，设计器会识别组件并打开上拉操作菜单。</p>
+            </div>
+          </header>
+          <div class="step-instructions">
+            <strong>选中后可以</strong>
+            <ul>
+              <li>双击文字，或点击菜单中的编辑按钮修改内容。</li>
+              <li>上移、下移、选择父元素、复制或删除。</li>
+              <li>拖动蓝色边框的控制点调整宽度和高度。</li>
+            </ul>
+          </div>
+          <figure class="tutorial-figure">
+            <button class="tutorial-shot" type="button" aria-label="放大第 3 步截图">
+              <img src="assets/tutorial/step-03-select.png" width="1440" height="960" alt="选中页面标题后出现蓝色选择框与上拉菜单">
+              <span class="spotlight primary" style="--x:32.4%;--y:22.5%;--w:17.5%;--h:10%;" data-label="蓝框表示当前组件" aria-hidden="true"><i>3</i></span>
+              <span class="spotlight secondary" style="--x:32.2%;--y:57.5%;--w:32.5%;--h:6.7%;" data-label="组件操作菜单" aria-hidden="true"></span>
+            </button>
+            <figcaption><span>上拉菜单</span>菜单始终靠近当前组件的可见区域；右侧检查器会同步显示该元素的标签和尺寸。</figcaption>
+          </figure>
+          <div class="step-note"><strong>如果点不中</strong><span>确认顶部当前是“编辑”，而不是“浏览”；也可以在左侧“结构”树中选择对应节点。</span></div>
+          <a class="step-next" href="#step-4">下一步：像 PPT 一样自由拖动 <span>↓</span></a>
+        </article>
+
+        <article class="tutorial-step" id="step-4" data-step="4">
+          <header class="step-head">
+            <div class="step-number">04</div>
+            <div>
+              <p>FREE POSITION</p>
+              <h2>把组件拖到任意位置</h2>
+              <p class="step-summary">选择组件后点击“自由拖动组件”，再直接拖动蓝色选择框。组件不必局限在原有 DOM 排列位置。</p>
+            </div>
+          </header>
+          <div class="step-instructions">
+            <strong>操作方法</strong>
+            <ol>
+              <li>在上拉菜单点击六点拖动图标。</li>
+              <li>按住选中组件并拖到目标位置。</li>
+              <li>按住 <kbd>Shift</kbd> 可锁定水平或垂直方向。</li>
+              <li>在右侧输入 X、Y 精确位置，或点击“位置归零”。</li>
+            </ol>
+          </div>
+          <figure class="tutorial-figure">
+            <button class="tutorial-shot" type="button" aria-label="放大第 4 步截图">
+              <img src="assets/tutorial/step-04-drag.png" width="1440" height="960" alt="页面标题被自由拖动，并在右侧显示 X Y 偏移">
+              <span class="spotlight primary" style="--x:38.2%;--y:28.4%;--w:17.6%;--h:9.5%;" data-label="拖动后的组件位置" aria-hidden="true"><i>4</i></span>
+              <span class="spotlight secondary" style="--x:85%;--y:48.8%;--w:14%;--h:8.5%;" data-label="精确 X / Y 坐标" aria-hidden="true"></span>
+            </button>
+            <figcaption><span>位置数据</span>自由位置会进入 HTML 内容，可随保存、撤销和重做一起保留。</figcaption>
+          </figure>
+          <div class="step-note"><strong>结构与位置</strong><span>自由拖动改变视觉偏移；如果要改变 DOM 层级，请在左侧“结构”面板中拖动节点。</span></div>
+          <a class="step-next" href="#step-5">下一步：新增页面组件 <span>↓</span></a>
+        </article>
+
+        <article class="tutorial-step" id="step-5" data-step="5">
+          <header class="step-head">
+            <div class="step-number">05</div>
+            <div>
+              <p>BUILD COMPONENTS</p>
+              <h2>用基础控件制作自定义组合</h2>
+              <p class="step-summary">左侧只提供标题、容器、按钮、输入框、图片等基础 HTML 控件；需要的业务结构由你自由组合。</p>
+            </div>
+          </header>
+          <div class="step-instructions">
+            <strong>制作组合控件</strong>
+            <ol>
+              <li>点击基础控件或右侧的 <b>+</b> 插入；也可以拖进画布精确放置。</li>
+              <li>按住 <kbd>Shift</kbd>、<kbd>Ctrl</kbd> 或 <kbd>⌘</kbd>，依次点击需要组合的控件。</li>
+              <li>在画布底部点击“创建组合控件”，输入名称。</li>
+              <li>以后从左侧“自定义”中点击 <b>+</b>、双击或拖动即可重复使用。</li>
+            </ol>
+          </div>
+          <figure class="tutorial-figure">
+            <button class="tutorial-shot" type="button" aria-label="放大第 5 步截图">
+              <img src="assets/tutorial/step-05-insert.png" width="1440" height="960" alt="从左侧控件列表向 HTML 画布插入内容">
+              <span class="spotlight primary" style="--x:32.6%;--y:28.8%;--w:17.4%;--h:6.2%;" data-label="插入后的控件位置" aria-hidden="true"><i>5</i></span>
+              <span class="spotlight secondary" style="--x:.7%;--y:91.8%;--w:16.4%;--h:6.2%;" data-label="左侧控件入口" aria-hidden="true"></span>
+            </button>
+            <figcaption><span>原控件保留</span>创建组合只保存所选控件的副本，不会移动、删除或包裹画布中的原控件。</figcaption>
+          </figure>
+          <div class="step-note"><strong>选择范围</strong><span>如果同时选中父控件和内部子控件，组合时只保留最外层控件，避免内容重复。</span></div>
+          <a class="step-next" href="#step-6">下一步：用检查器精确调整 <span>↓</span></a>
+        </article>
+
+        <article class="tutorial-step" id="step-6" data-step="6">
+          <header class="step-head">
+            <div class="step-number">06</div>
+            <div>
+              <p>INSPECT &amp; STYLE</p>
+              <h2>在右侧精确调整组件</h2>
+              <p class="step-summary">选中组件后，右侧四个面板会直接修改当前元素，画布和源码会同步更新。</p>
+            </div>
+          </header>
+          <div class="step-instructions">
+            <strong>四个面板</strong>
+            <ul>
+              <li><b>样式：</b>字体、布局、间距、颜色、边框、阴影和自由位置。</li>
+              <li><b>属性：</b>标签、ID、class 和任意 HTML 属性。</li>
+              <li><b>交互：</b>配置点击、输入、提交等内联事件。</li>
+              <li><b>HTML：</b>查看或替换当前组件的完整 HTML。</li>
+            </ul>
+          </div>
+          <figure class="tutorial-figure">
+            <button class="tutorial-shot" type="button" aria-label="放大第 6 步截图">
+              <img src="assets/tutorial/step-06-inspector.png" width="1440" height="960" alt="右侧属性检查器显示当前卡片的标签、类名和属性">
+              <span class="spotlight primary" style="--x:79.2%;--y:6.8%;--w:20.4%;--h:89%;" data-label="当前组件的检查器" aria-hidden="true"><i>6</i></span>
+            </button>
+            <figcaption><span>实时更新</span>输入框失焦或确认后，修改会应用到当前组件并进入撤销历史。</figcaption>
+          </figure>
+          <div class="step-note"><strong>测试交互</strong><span>编辑画布不会执行页面脚本。添加交互后，切换到“浏览”模式进行实际测试。</span></div>
+          <a class="step-next" href="#step-7">下一步：直接编辑完整源码 <span>↓</span></a>
+        </article>
+
+        <article class="tutorial-step" id="step-7" data-step="7">
+          <header class="step-head">
+            <div class="step-number">07</div>
+            <div>
+              <p>EDIT SOURCE</p>
+              <h2>直接修改完整 HTML 源码</h2>
+              <p class="step-summary">顶部切换到“源码”，可以一次编辑完整文档，包括结构、样式和脚本。</p>
+            </div>
+          </header>
+          <div class="step-instructions">
+            <strong>使用方式</strong>
+            <ol>
+              <li>点击顶部“源码”。</li>
+              <li>在编辑区修改完整 HTML。</li>
+              <li>切回“编辑”或“浏览”，设计器重新解析并应用内容。</li>
+            </ol>
+          </div>
+          <figure class="tutorial-figure">
+            <button class="tutorial-shot" type="button" aria-label="放大第 7 步截图">
+              <img src="assets/tutorial/step-07-source.png" width="1440" height="960" alt="HTML Designer 源码模式显示完整 HTML 文档">
+              <span class="spotlight primary" style="--x:3%;--y:12%;--w:94%;--h:82%;" data-label="完整 HTML 源码编辑区" aria-hidden="true"><i>7</i></span>
+              <span class="spotlight secondary" style="--x:17.1%;--y:1.1%;--w:4.1%;--h:4.4%;" data-label="源码模式" aria-hidden="true"></span>
+            </button>
+            <figcaption><span>双向同步</span>画布修改会进入源码；源码修改在切换模式后重新进入画布。</figcaption>
+          </figure>
+          <div class="step-note warning"><strong>注意</strong><span>切换模式前请保持完整、合法的 HTML 结构。解析失败时先在源码中修正标签，再重新切换。</span></div>
+          <a class="step-next" href="#step-8">下一步：浏览并测试页面 <span>↓</span></a>
+        </article>
+
+        <article class="tutorial-step" id="step-8" data-step="8">
+          <header class="step-head">
+            <div class="step-number">08</div>
+            <div>
+              <p>BROWSE &amp; TEST</p>
+              <h2>浏览完整页面并测试交互</h2>
+              <p class="step-summary">切换到“浏览”后，点击按钮、链接和表单会像普通网页一样工作，不再触发组件选择菜单。</p>
+            </div>
+          </header>
+          <div class="step-instructions">
+            <strong>浏览控制</strong>
+            <ul>
+              <li>左下角依次是缩小、当前比例、放大、适应视口和完整页面画板。</li>
+              <li>点击当前百分比可恢复到 100%。</li>
+              <li>按 <kbd>P</kbd> 进入沉浸浏览，只保留页面、缩放和退出按钮。</li>
+              <li>使用桌面、平板、手机按钮检查不同设备宽度。</li>
+            </ul>
+          </div>
+          <figure class="tutorial-figure">
+            <button class="tutorial-shot" type="button" aria-label="放大第 8 步截图">
+              <img src="assets/tutorial/step-08-browse.png" width="1440" height="960" alt="浏览模式显示完整 HTML 页面和左下角缩放按钮">
+              <span class="spotlight primary" style="--x:.8%;--y:91.8%;--w:12.4%;--h:4.5%;" data-label="浏览缩放控制" aria-hidden="true"><i>8</i></span>
+              <span class="spotlight secondary" style="--x:13.7%;--y:1.1%;--w:3.7%;--h:4.4%;" data-label="浏览模式" aria-hidden="true"></span>
+            </button>
+            <figcaption><span>完整页面</span>页面保持原有设备比例，整个 HTML 在画布中缩放显示，内部组件位置不会因工作区宽度反复变化。</figcaption>
+          </figure>
+          <div class="step-note"><strong>切回编辑</strong><span>设计器会保留当前页面位置、滚动状态和已打开的页面弹窗，便于继续编辑正在查看的内容。</span></div>
+          <a class="step-next" href="#step-9">下一步：使用 AI Design <span>↓</span></a>
+        </article>
+
+        <article class="tutorial-step" id="step-9" data-step="9">
+          <header class="step-head">
+            <div class="step-number">09</div>
+            <div>
+              <p>LOCAL AI WORKFLOW</p>
+              <h2>让 AI Design 修改页面</h2>
+              <p class="step-summary">AI Design 通过本地服务连接 Codex CLI 或 Claude Code CLI。面板打开时，完整页面会继续显示在右侧。</p>
+            </div>
+          </header>
+          <div class="step-instructions">
+            <strong>第一次使用</strong>
+            <ol>
+              <li>点击顶部“AI Design”，展开“连接设置”。</li>
+              <li>选择 CLI；模型列表会自动读取该 CLI 当前支持的模型。</li>
+              <li>测试连接并保存设置。</li>
+              <li>描述希望生成或修改的内容，然后发送。</li>
+              <li>检查生成结果，确认后再应用到当前页面。</li>
+            </ol>
+          </div>
+          <figure class="tutorial-figure">
+            <button class="tutorial-shot" type="button" aria-label="放大第 9 步截图">
+              <img src="assets/tutorial/step-09-ai-design.png" width="1440" height="960" alt="AI Design 左侧面板与右侧完整页面">
+              <span class="spotlight primary" style="--x:.5%;--y:6.5%;--w:26.7%;--h:89.5%;" data-label="提示词与 CLI 设置" aria-hidden="true"><i>9</i></span>
+              <span class="spotlight secondary" style="--x:43.3%;--y:12%;--w:40.5%;--h:78%;" data-label="完整页面持续可见" aria-hidden="true"></span>
+            </button>
+            <figcaption><span>目标范围</span>没有选择组件时处理整个页面；先选中组件再打开 AI Design，可以把任务限制到当前元素。</figcaption>
+          </figure>
+          <div class="step-note warning"><strong>连接失败</strong><span>先在系统终端确认对应 CLI 可以正常运行并已登录，再回到“连接设置”刷新模型并重新测试。</span></div>
+          <a class="step-next" href="#step-10">下一步：保存与导出 <span>↓</span></a>
+        </article>
+
+        <article class="tutorial-step" id="step-10" data-step="10">
+          <header class="step-head">
+            <div class="step-number">10</div>
+            <div>
+              <p>SAVE &amp; DELIVER</p>
+              <h2>保存文件或导出副本</h2>
+              <p class="step-summary">完成编辑后使用右上角的文件工具。保存行为取决于你在第 1 步选择的文件打开方式。</p>
+            </div>
+          </header>
+          <div class="step-instructions">
+            <strong>保存规则</strong>
+            <ul>
+              <li><b>打开本地文件：</b>“保存”直接写回原文件；磁盘内容被外部修改时会先提醒。</li>
+              <li><b>导入或新建：</b>“保存”和“导出副本”都会下载一个 HTML 文件。</li>
+              <li><b>快捷键：</b><kbd>Ctrl/⌘ + S</kbd> 执行保存或下载。</li>
+            </ul>
+          </div>
+          <figure class="tutorial-figure">
+            <button class="tutorial-shot" type="button" aria-label="放大第 10 步截图">
+              <img src="assets/tutorial/step-10-save.png" width="1440" height="960" alt="HTML Designer 顶部右侧保存与导出工具">
+              <span class="spotlight primary" style="--x:73.5%;--y:.6%;--w:22%;--h:5.6%;" data-label="导入、导出与保存" aria-hidden="true"><i>10</i></span>
+            </button>
+            <figcaption><span>文件状态</span>顶部文件名旁会显示“已保存”或“未保存”；底部状态栏显示最近自动保存时间。</figcaption>
+          </figure>
+          <div class="step-note warning"><strong>不要混淆</strong><span>自动保存只用于恢复浏览器会话，不等于写回磁盘。交付前仍需点击“保存”或“导出副本”。</span></div>
+          <a class="step-next finish" href="./">完成教程，打开 HTML Designer <span>↗</span></a>
+        </article>
+      </div>
+    </section>
+
+    <section class="quick-reference">
+      <div class="section-kicker">QUICK REFERENCE</div>
+      <div class="quick-reference-head">
+        <h2>记住三个模式就够了</h2>
+        <a href="guide.html">查看完整功能指南 →</a>
+      </div>
+      <div class="mode-grid">
+        <article><span>编辑</span><strong>改页面</strong><p>选择组件、修改文字、自由拖动、插入组件和调整样式。</p></article>
+        <article><span>浏览</span><strong>试页面</strong><p>测试链接、表单、脚本、弹窗与实际页面交互。</p></article>
+        <article><span>源码</span><strong>改文档</strong><p>直接修改完整 HTML、CSS 与 JavaScript。</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="tutorial-footer">
+    <div><strong>HTML Designer</strong><span>本地优先的可视化 HTML 工作台</span></div>
+    <div><a href="#step-1">重新开始教程</a><a href="guide.html">完整指南</a><a href="./">打开设计器</a></div>
+  </footer>
+
+  <dialog class="tutorial-lightbox" id="tutorial-lightbox" aria-label="放大的操作截图">
+    <button class="lightbox-close" id="lightbox-close" type="button" aria-label="关闭大图">×</button>
+    <div class="lightbox-stage" id="lightbox-stage"></div>
+    <p id="lightbox-caption"></p>
+  </dialog>
+
+  <button class="tutorial-backtop" id="tutorial-backtop" type="button" aria-label="返回顶部">↑</button>
+  <script type="module" src="js/tutorial.js?v=20260726a"></script>
+</body>
+</html>

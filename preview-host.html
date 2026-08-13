@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTML 浏览画布</title>
+  <style>
+    html, body { min-height: 100%; margin: 0; background: #fff; }
+    body { display: grid; place-items: center; color: #66706a; font: 12px system-ui, sans-serif; }
+    span { display: grid; gap: 10px; justify-items: center; }
+    i { width: 22px; height: 22px; border: 2px solid #e0e5e1; border-top-color: #ff5f42; border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <span><i></i>正在打开页面…</span>
+  <script>
+    (() => {
+      const session = new URLSearchParams(location.search).get('session') || '';
+      const hostPath = location.pathname;
+      const hostSearch = location.search;
+      let baselineDocument = null;
+
+      const elementLocator = (element) => {
+        if (!element?.ownerDocument?.documentElement) return null;
+        const path = [];
+        let node = element;
+        while (node && node !== element.ownerDocument.documentElement) {
+          const parentElement = node.parentElement;
+          if (!parentElement) return null;
+          path.unshift(Array.from(parentElement.children).indexOf(node));
+          node = parentElement;
+        }
+        return { id: element.id || '', path, tag: element.tagName };
+      };
+
+      const resolveLocator = (documentValue, locator) => {
+        if (!documentValue?.documentElement || !locator) return null;
+        if (locator.id) {
+          const identified = documentValue.getElementById(locator.id);
+          if (identified && (!locator.tag || identified.tagName === locator.tag)) return identified;
+        }
+        let node = documentValue.documentElement;
+        for (const index of Array.isArray(locator.path) ? locator.path : []) {
+          node = node?.children?.[index];
+          if (!node) return null;
+        }
+        return !locator.tag || node.tagName === locator.tag ? node : null;
+      };
+
+      const presentationAttribute = (name) => {
+        const normalized = String(name || '').toLowerCase();
+        return normalized === 'class'
+          || normalized === 'hidden'
+          || normalized === 'open'
+          || normalized === 'inert'
+          || normalized.startsWith('aria-')
+          || (normalized.startsWith('data-') && !normalized.startsWith('data-hd-'));
+      };
+
+      const presentationChanges = () => {
+        if (!baselineDocument?.documentElement) return [];
+        const elements = Array.from(new Set([document.documentElement, ...document.querySelectorAll('*')]));
+        return elements.flatMap((element) => {
+          const locator = elementLocator(element);
+          const baseline = resolveLocator(baselineDocument, locator);
+          if (!baseline) return [];
+          const names = new Set([
+            ...Array.from(element.attributes, attribute => attribute.name),
+            ...Array.from(baseline.attributes, attribute => attribute.name),
+          ].filter(presentationAttribute));
+          const attributes = Array.from(names).flatMap((name) => {
+            const current = element.hasAttribute(name) ? element.getAttribute(name) : null;
+            const original = baseline.hasAttribute(name) ? baseline.getAttribute(name) : null;
+            return current === original ? [] : [[name, current]];
+          });
+          return attributes.length ? [{ locator, attributes }] : [];
+        });
+      };
+
+      const openElements = (selector) => {
+        try { return Array.from(document.querySelectorAll(selector)); } catch (_) { return []; }
+      };
+
+      const documentHeight = () => Math.max(
+        innerHeight,
+        document.documentElement?.scrollHeight || 0,
+        document.body?.scrollHeight || 0,
+        document.body?.offsetHeight || 0,
+      );
+
+      const postPreviewSize = () => {
+        parent.postMessage({
+          type: 'html-designer-preview-size',
+          session,
+          documentHeight: documentHeight(),
+        }, '*');
+      };
+
+      const stateTarget = () => {
+        const modal = openElements('dialog:modal').at(-1);
+        if (modal) return modal;
+        const hashTarget = location.hash
+          ? document.getElementById(decodeURIComponent(location.hash.slice(1)))
+          : null;
+        if (hashTarget) return hashTarget;
+        if (document.activeElement && !['HTML', 'BODY'].includes(document.activeElement.tagName)) return document.activeElement;
+        return document.elementFromPoint(innerWidth / 2, Math.min(innerHeight - 1, innerHeight / 2));
+      };
+
+      const pageLabel = (target) => {
+        const dialog = target?.closest?.('dialog');
+        const scope = dialog || target;
+        const heading = scope?.matches?.('h1,h2,h3,h4,h5,h6')
+          ? scope
+          : scope?.querySelector?.('h1,h2,h3,h4,h5,h6');
+        return dialog?.getAttribute('aria-label')
+          || heading?.textContent?.trim()
+          || target?.getAttribute?.('aria-label')
+          || target?.textContent?.trim()?.slice(0, 48)
+          || document.title
+          || '当前页面';
+      };
+
+      const captureState = () => {
+        const target = stateTarget();
+        const route = location.pathname === hostPath && location.search === hostSearch
+          ? location.hash
+          : `${location.pathname}${location.search}${location.hash}`;
+        return {
+          route,
+          hash: location.hash,
+          scrollX: Math.round(scrollX),
+          scrollY: Math.round(scrollY),
+          target: elementLocator(target),
+          presentation: presentationChanges(),
+          modals: openElements('dialog:modal').map(elementLocator).filter(Boolean),
+          popovers: openElements(':popover-open').map(elementLocator).filter(Boolean),
+          pageLabel: pageLabel(target),
+        };
+      };
+
+      const restoreState = (state) => {
+        if (!state || typeof state !== 'object') return;
+        const previousHash = location.hash;
+        try {
+          if (state.route) history.replaceState(history.state, '', state.route);
+          else if (state.hash) history.replaceState(history.state, '', state.hash);
+        } catch (_) {}
+        if (state.route && !state.route.startsWith('#')) {
+          window.dispatchEvent(new PopStateEvent('popstate', { state: history.state }));
+        }
+        if (state.hash && state.hash !== previousHash) {
+          window.dispatchEvent(new HashChangeEvent('hashchange', { oldURL: previousHash, newURL: state.hash }));
+        }
+        window.setTimeout(() => {
+          (Array.isArray(state.presentation) ? state.presentation : []).forEach((change) => {
+            const element = resolveLocator(document, change.locator);
+            if (!element) return;
+            (Array.isArray(change.attributes) ? change.attributes : []).forEach(([name, value]) => {
+              if (!presentationAttribute(name)) return;
+              if (value == null) element.removeAttribute(name);
+              else element.setAttribute(name, value);
+            });
+          });
+          (Array.isArray(state.modals) ? state.modals : []).forEach((locator) => {
+            const dialog = resolveLocator(document, locator);
+            if (dialog?.tagName !== 'DIALOG') return;
+            try {
+              if (dialog.open) dialog.close();
+              dialog.showModal();
+            } catch (_) {
+              dialog.setAttribute('open', '');
+            }
+          });
+          (Array.isArray(state.popovers) ? state.popovers : []).forEach((locator) => {
+            try { resolveLocator(document, locator)?.showPopover?.(); } catch (_) {}
+          });
+          window.scrollTo({
+            left: Number(state.scrollX) || 0,
+            top: Number(state.scrollY) || 0,
+            behavior: 'instant',
+          });
+        }, 0);
+      };
+
+      const handleMessage = (event) => {
+        const message = event.data;
+        if (event.source !== parent || !message || message.session !== session) return;
+        if (message.type === 'html-designer-capture-preview-state') {
+          parent.postMessage({
+            type: 'html-designer-preview-state',
+            session,
+            requestId: message.requestId,
+            state: captureState(),
+          }, '*');
+          return;
+        }
+        if (message.type === 'html-designer-restore-preview-state') {
+          restoreState(message.state);
+          return;
+        }
+        if (message.type === 'html-designer-measure-preview-size') {
+          postPreviewSize();
+          return;
+        }
+        if (message.type !== 'html-designer-render-preview' || typeof message.html !== 'string') return;
+        baselineDocument = new DOMParser().parseFromString(message.html, 'text/html');
+        document.open();
+        document.write(message.html);
+        document.close();
+        window.removeEventListener('message', handleMessage);
+        window.addEventListener('message', handleMessage);
+        parent.postMessage({
+          type: 'html-designer-preview-rendered',
+          session,
+          documentHeight: documentHeight(),
+        }, '*');
+      };
+      window.addEventListener('message', handleMessage);
+      parent.postMessage({ type: 'html-designer-preview-ready', session }, '*');
+    })();
+  </script>
+</body>
+</html>
